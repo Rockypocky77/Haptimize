@@ -35,9 +35,12 @@ interface AuthState {
   user: User | null;
   profile: UserProfile | null;
   loading: boolean;
+  isDemoMode: boolean;
   signInWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
   completeOnboarding: () => Promise<void>;
+  enterDemoMode: () => void;
+  exitDemoMode: () => void;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -46,6 +49,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isDemoMode, setIsDemoMode] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setIsDemoMode(sessionStorage.getItem("haptimize_demo") === "true");
+    }
+  }, []);
 
   const loadProfile = useCallback(async (u: User) => {
     try {
@@ -83,6 +93,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
       setUser(u);
       if (u) {
+        if (isDemoMode) {
+          setIsDemoMode(false);
+          sessionStorage.removeItem("haptimize_demo");
+        }
         await loadProfile(u);
       } else {
         setProfile(null);
@@ -90,7 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
     return unsubscribe;
-  }, [loadProfile]);
+  }, [loadProfile, isDemoMode]);
 
   const signInWithGoogle = useCallback(async () => {
     await signInWithPopup(auth, googleProvider);
@@ -113,9 +127,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [user]);
 
+  const enterDemoMode = useCallback(() => {
+    setIsDemoMode(true);
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("haptimize_demo", "true");
+    }
+  }, []);
+
+  const exitDemoMode = useCallback(() => {
+    setIsDemoMode(false);
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem("haptimize_demo");
+    }
+  }, []);
+
   return (
     <AuthContext.Provider
-      value={{ user, profile, loading, signInWithGoogle, logout, completeOnboarding }}
+      value={{
+        user,
+        profile,
+        loading,
+        isDemoMode,
+        signInWithGoogle,
+        logout,
+        completeOnboarding,
+        enterDemoMode,
+        exitDemoMode,
+      }}
     >
       {children}
     </AuthContext.Provider>

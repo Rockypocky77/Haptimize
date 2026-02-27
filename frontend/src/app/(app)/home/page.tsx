@@ -21,20 +21,41 @@ interface ReminderItem {
   reminderType: string;
 }
 
+const DEMO_HABITS: HabitItem[] = [
+  { id: "d1", title: "Drink 8 cups of water", completed: true },
+  { id: "d2", title: "Exercise for 30 minutes", completed: true },
+  { id: "d3", title: "Read for 20 minutes", completed: false },
+  { id: "d4", title: "Meditate for 10 minutes", completed: false },
+  { id: "d5", title: "Journal for 10 minutes", completed: false },
+];
+
+const DEMO_REMINDERS: ReminderItem[] = [
+  { id: "r1", text: "Buy groceries", completed: false, reminderType: "casual" },
+  { id: "r2", text: "Call the dentist", completed: false, reminderType: "casual" },
+  { id: "r3", text: "Submit project proposal", completed: false, reminderType: "casual" },
+];
+
 export default function HomePage() {
-  const { profile } = useAuth();
+  const { profile, isDemoMode } = useAuth();
   const [completionPct, setCompletionPct] = useState(0);
   const [streak, setStreak] = useState(0);
   const [pendingHabits, setPendingHabits] = useState<HabitItem[]>([]);
   const [oldestReminders, setOldestReminders] = useState<ReminderItem[]>([]);
 
   const loadDashboard = useCallback(async () => {
+    if (isDemoMode) {
+      setCompletionPct(40);
+      setStreak(5);
+      setPendingHabits(DEMO_HABITS.filter((h) => !h.completed));
+      setOldestReminders(DEMO_REMINDERS);
+      return;
+    }
+
     if (!profile?.uid) return;
 
     try {
       const today = new Date().toISOString().split("T")[0];
 
-      // Load today's habit log
       const logRef = doc(db, "habitLogs", profile.uid, "daily", today);
       const logSnap = await getDoc(logRef);
       if (logSnap.exists()) {
@@ -42,14 +63,12 @@ export default function HomePage() {
         setCompletionPct(data.completionPct ?? 0);
       }
 
-      // Load streak from dailyStats
       const statsRef = doc(db, "dailyStats", profile.uid);
       const statsSnap = await getDoc(statsRef);
       if (statsSnap.exists()) {
         setStreak(statsSnap.data().currentStreak ?? 0);
       }
 
-      // Load habits for today
       const habitsCol = collection(db, "habits", profile.uid, "items");
       const habitsSnap = await getDocs(query(habitsCol, where("active", "==", true)));
       const todayLog = logSnap.exists() ? (logSnap.data().completedHabitIds ?? []) : [];
@@ -60,7 +79,6 @@ export default function HomePage() {
       }));
       setPendingHabits(habits.filter((h) => !h.completed).slice(0, 5));
 
-      // Load oldest casual reminders
       const remCol = collection(db, "reminders", profile.uid, "casual");
       const remSnap = await getDocs(query(remCol, where("completed", "==", false)));
       const rems: ReminderItem[] = remSnap.docs.map((d) => ({
@@ -71,27 +89,27 @@ export default function HomePage() {
       }));
       setOldestReminders(rems.slice(0, 4));
     } catch {
-      // Firebase may not be configured yet — show empty state
+      // Firebase may not be configured yet
     }
-  }, [profile?.uid]);
+  }, [profile?.uid, isDemoMode]);
 
   useEffect(() => {
     loadDashboard();
   }, [loadDashboard]);
 
+  const displayName = isDemoMode ? "Explorer" : (profile?.displayName ?? "there");
+
   return (
     <div className="max-w-4xl mx-auto space-y-8">
-      {/* Welcome */}
       <div>
         <h1 className="text-2xl font-bold text-neutral-dark">
-          Welcome back, {profile?.displayName ?? "there"}!
+          Welcome back, {displayName}!
         </h1>
         <p className="text-sm text-neutral-dark/50 mt-1">
           Here&apos;s how your day is going.
         </p>
       </div>
 
-      {/* Top row: completion circle + streak */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card className="flex flex-col items-center justify-center py-8">
           <CompletionCircle percentage={completionPct} />
@@ -130,14 +148,13 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* Pending habits */}
       <Card>
         <h3 className="text-sm font-semibold text-neutral-dark/70 mb-3 flex items-center gap-2">
           <CheckSquare size={16} />
           Habits to Complete
         </h3>
         {pendingHabits.length === 0 ? (
-          <p className="text-sm text-neutral-dark/40">
+          <p className="text-sm text-neutral-dark/40 py-4 text-center">
             All done for today — or add habits in the Checklist page!
           </p>
         ) : (

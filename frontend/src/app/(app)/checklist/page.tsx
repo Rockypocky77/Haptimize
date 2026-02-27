@@ -6,6 +6,7 @@ import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import HabitItem from "@/components/checklist/HabitItem";
 import ConsistencyChart from "@/components/checklist/ConsistencyChart";
+import AccountRequiredModal from "@/components/ui/AccountRequiredModal";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   db,
@@ -13,12 +14,10 @@ import {
   doc,
   getDoc,
   setDoc,
-  updateDoc,
   getDocs,
   deleteDoc,
   query,
   where,
-  orderBy,
   serverTimestamp,
 } from "@/lib/firebase/client";
 import { Plus, Lightbulb } from "lucide-react";
@@ -47,17 +46,43 @@ interface DayData {
   pct: number;
 }
 
+const DEMO_HABITS: Habit[] = [
+  { id: "d1", title: "Drink 8 cups of water", active: true },
+  { id: "d2", title: "Exercise for 30 minutes", active: true },
+  { id: "d3", title: "Read for 20 minutes", active: true },
+  { id: "d4", title: "Meditate for 10 minutes", active: true },
+  { id: "d5", title: "Journal for 10 minutes", active: true },
+];
+
+const DEMO_CHART: DayData[] = [
+  { date: "02-20", pct: 100 },
+  { date: "02-21", pct: 80 },
+  { date: "02-22", pct: 60 },
+  { date: "02-23", pct: 100 },
+  { date: "02-24", pct: 40 },
+  { date: "02-25", pct: 80 },
+  { date: "02-26", pct: 40 },
+];
+
 export default function ChecklistPage() {
-  const { profile } = useAuth();
+  const { profile, isDemoMode } = useAuth();
   const [habits, setHabits] = useState<Habit[]>([]);
   const [completedIds, setCompletedIds] = useState<string[]>([]);
   const [newHabit, setNewHabit] = useState("");
   const [chartData, setChartData] = useState<DayData[]>([]);
   const [showRecommended, setShowRecommended] = useState(false);
+  const [showAccountModal, setShowAccountModal] = useState(false);
 
   const today = new Date().toISOString().split("T")[0];
 
   const loadData = useCallback(async () => {
+    if (isDemoMode) {
+      setHabits(DEMO_HABITS);
+      setCompletedIds(["d1", "d2"]);
+      setChartData(DEMO_CHART);
+      return;
+    }
+
     if (!profile?.uid) return;
     try {
       const habitsCol = collection(db, "habits", profile.uid, "items");
@@ -70,7 +95,6 @@ export default function ChecklistPage() {
         setCompletedIds(logSnap.data().completedHabitIds ?? []);
       }
 
-      // Load last 14 days for chart
       const days: DayData[] = [];
       for (let i = 13; i >= 0; i--) {
         const d = new Date();
@@ -89,14 +113,23 @@ export default function ChecklistPage() {
     } catch {
       // Firebase may not be configured
     }
-  }, [profile?.uid, today]);
+  }, [profile?.uid, today, isDemoMode]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
+  function guardDemo(): boolean {
+    if (isDemoMode) {
+      setShowAccountModal(true);
+      return true;
+    }
+    return false;
+  }
+
   const addHabit = useCallback(
     async (title: string) => {
+      if (isDemoMode) return;
       if (!profile?.uid || !title.trim()) return;
       const id = `habit_${Date.now()}`;
       const habit: Habit = { id, title: title.trim(), active: true };
@@ -106,14 +139,18 @@ export default function ChecklistPage() {
         const ref = doc(db, "habits", profile.uid, "items", id);
         await setDoc(ref, { title: habit.title, active: true, createdAt: serverTimestamp() });
       } catch {
-        // offline fallback — state already updated
+        // offline fallback
       }
     },
-    [profile?.uid]
+    [profile?.uid, isDemoMode]
   );
 
   const toggleHabit = useCallback(
     async (id: string) => {
+      if (isDemoMode) {
+        setShowAccountModal(true);
+        return;
+      }
       if (!profile?.uid) return;
       const isCompleted = completedIds.includes(id);
       const next = isCompleted
@@ -129,11 +166,15 @@ export default function ChecklistPage() {
         // offline
       }
     },
-    [profile?.uid, completedIds, habits.length, today]
+    [profile?.uid, completedIds, habits.length, today, isDemoMode]
   );
 
   const deleteHabit = useCallback(
     async (id: string) => {
+      if (isDemoMode) {
+        setShowAccountModal(true);
+        return;
+      }
       setHabits((prev) => prev.filter((h) => h.id !== id));
       setCompletedIds((prev) => prev.filter((x) => x !== id));
       if (!profile?.uid) return;
@@ -143,7 +184,7 @@ export default function ChecklistPage() {
         // offline
       }
     },
-    [profile?.uid]
+    [profile?.uid, isDemoMode]
   );
 
   const completionPct =
@@ -155,7 +196,6 @@ export default function ChecklistPage() {
     <div className="max-w-4xl mx-auto space-y-6">
       <h1 className="text-2xl font-bold text-neutral-dark">Checklist</h1>
 
-      {/* Consistency chart */}
       <Card>
         <h3 className="text-sm font-semibold text-neutral-dark/70 mb-3">
           Daily Consistency
@@ -163,7 +203,6 @@ export default function ChecklistPage() {
         <ConsistencyChart data={chartData} />
       </Card>
 
-      {/* Today's progress bar */}
       <Card padding="sm">
         <div className="flex items-center gap-4 px-2">
           <span className="text-sm font-medium text-neutral-dark/60 whitespace-nowrap">
@@ -182,11 +221,11 @@ export default function ChecklistPage() {
         </div>
       </Card>
 
-      {/* Add habit */}
       <Card>
         <form
           onSubmit={(e) => {
             e.preventDefault();
+            if (guardDemo()) return;
             addHabit(newHabit);
           }}
           className="flex gap-3"
@@ -217,7 +256,10 @@ export default function ChecklistPage() {
             ).map((r) => (
               <button
                 key={r}
-                onClick={() => addHabit(r)}
+                onClick={() => {
+                  if (guardDemo()) return;
+                  addHabit(r);
+                }}
                 className="px-3 py-1.5 text-xs bg-primary-light/20 text-neutral-dark/70 rounded-lg hover:bg-primary-light/40 cursor-pointer"
               >
                 + {r}
@@ -227,7 +269,6 @@ export default function ChecklistPage() {
         )}
       </Card>
 
-      {/* Habit list */}
       <Card>
         <div className="space-y-1">
           {habits.length === 0 ? (
@@ -248,6 +289,11 @@ export default function ChecklistPage() {
           )}
         </div>
       </Card>
+
+      <AccountRequiredModal
+        open={showAccountModal}
+        onClose={() => setShowAccountModal(false)}
+      />
     </div>
   );
 }

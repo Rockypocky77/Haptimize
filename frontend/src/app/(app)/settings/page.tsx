@@ -5,6 +5,7 @@ import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Modal from "@/components/ui/Modal";
+import AccountRequiredModal from "@/components/ui/AccountRequiredModal";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   db,
@@ -22,10 +23,10 @@ import {
   reauthenticateWithCredential,
   deleteUser,
 } from "firebase/auth";
-import { Shield, User, Bell, Sparkles, Trash2, AlertTriangle } from "lucide-react";
+import { Shield, User, Bell, Sparkles, AlertTriangle, LogOut } from "lucide-react";
 
 export default function SettingsPage() {
-  const { user, profile, logout } = useAuth();
+  const { user, profile, logout, isDemoMode } = useAuth();
   const isEmailAuth = profile?.authProvider === "email";
 
   const [username, setUsername] = useState(profile?.displayName ?? "");
@@ -40,6 +41,15 @@ export default function SettingsPage() {
   const [showWipeModal, setShowWipeModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [dangerInput, setDangerInput] = useState("");
+  const [showAccountModal, setShowAccountModal] = useState(false);
+
+  function guardDemo(): boolean {
+    if (isDemoMode) {
+      setShowAccountModal(true);
+      return true;
+    }
+    return false;
+  }
 
   const saveProfile = useCallback(async () => {
     if (!user) return;
@@ -118,6 +128,112 @@ export default function SettingsPage() {
     }
   }, [user, logout]);
 
+  if (isDemoMode) {
+    return (
+      <div className="max-w-2xl mx-auto space-y-6">
+        <h1 className="text-2xl font-bold text-neutral-dark">Settings</h1>
+
+        <Card>
+          <h3 className="text-sm font-semibold text-neutral-dark/70 mb-4 flex items-center gap-2">
+            <User size={16} />
+            Profile
+          </h3>
+          <div className="space-y-4">
+            <Input
+              label="Username"
+              value="Demo User"
+              onChange={() => {}}
+              disabled
+            />
+            <div className="text-sm text-neutral-dark/50">
+              Email: demo@example.com
+            </div>
+            <Button onClick={() => guardDemo()} loading={false}>
+              Save Profile
+            </Button>
+          </div>
+        </Card>
+
+        <Card>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Sparkles size={16} className="text-primary" />
+              <div>
+                <p className="text-sm font-semibold text-neutral-dark/70">
+                  Hapti AI
+                </p>
+                <p className="text-xs text-neutral-dark/40">
+                  Enable AI assistant chat
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => guardDemo()}
+              className="w-12 h-7 rounded-full relative cursor-pointer transition-colors bg-primary"
+            >
+              <div className="absolute top-1 w-5 h-5 rounded-full bg-white shadow translate-x-6" />
+            </button>
+          </div>
+        </Card>
+
+        <Card>
+          <h3 className="text-sm font-semibold text-neutral-dark/70 mb-4 flex items-center gap-2">
+            <Bell size={16} />
+            Notifications
+          </h3>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-neutral-dark/70">Push notifications</span>
+              <button
+                onClick={() => guardDemo()}
+                className="w-12 h-7 rounded-full relative cursor-pointer transition-colors bg-primary"
+              >
+                <div className="absolute top-1 w-5 h-5 rounded-full bg-white shadow translate-x-6" />
+              </button>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="border-error/30">
+          <h3 className="text-sm font-semibold text-error mb-4 flex items-center gap-2">
+            <AlertTriangle size={16} />
+            Danger Zone
+          </h3>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-neutral-dark/70">Wipe all data</p>
+                <p className="text-xs text-neutral-dark/40">
+                  Remove all habits, reminders, and stats
+                </p>
+              </div>
+              <Button variant="danger" size="sm" onClick={() => guardDemo()}>
+                Wipe Data
+              </Button>
+            </div>
+            <div className="h-px bg-error/10" />
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-neutral-dark/70">Delete account</p>
+                <p className="text-xs text-neutral-dark/40">
+                  Permanently delete your account and all data
+                </p>
+              </div>
+              <Button variant="danger" size="sm" onClick={() => guardDemo()}>
+                Delete Account
+              </Button>
+            </div>
+          </div>
+        </Card>
+
+        <AccountRequiredModal
+          open={showAccountModal}
+          onClose={() => setShowAccountModal(false)}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <h1 className="text-2xl font-bold text-neutral-dark">Settings</h1>
@@ -128,7 +244,25 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {/* Profile */}
+      <Card>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <LogOut size={16} className="text-neutral-dark/60" />
+            <div>
+              <p className="text-sm font-semibold text-neutral-dark/70">
+                Sign out
+              </p>
+              <p className="text-xs text-neutral-dark/40">
+                End your session and return to the login page
+              </p>
+            </div>
+          </div>
+          <Button variant="secondary" onClick={logout}>
+            Sign out
+          </Button>
+        </div>
+      </Card>
+
       <Card>
         <h3 className="text-sm font-semibold text-neutral-dark/70 mb-4 flex items-center gap-2">
           <User size={16} />
@@ -149,7 +283,6 @@ export default function SettingsPage() {
         </div>
       </Card>
 
-      {/* Password (email auth only) */}
       {isEmailAuth && (
         <Card>
           <h3 className="text-sm font-semibold text-neutral-dark/70 mb-4 flex items-center gap-2">
@@ -195,7 +328,6 @@ export default function SettingsPage() {
         </Card>
       )}
 
-      {/* AI toggle */}
       <Card>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -226,7 +358,6 @@ export default function SettingsPage() {
         </div>
       </Card>
 
-      {/* Notifications */}
       <Card>
         <h3 className="text-sm font-semibold text-neutral-dark/70 mb-4 flex items-center gap-2">
           <Bell size={16} />
@@ -268,7 +399,6 @@ export default function SettingsPage() {
         </div>
       </Card>
 
-      {/* Danger zone */}
       <Card className="border-error/30">
         <h3 className="text-sm font-semibold text-error mb-4 flex items-center gap-2">
           <AlertTriangle size={16} />
@@ -309,7 +439,6 @@ export default function SettingsPage() {
         </div>
       </Card>
 
-      {/* Wipe confirmation */}
       <Modal
         open={showWipeModal}
         onClose={() => {
@@ -349,7 +478,6 @@ export default function SettingsPage() {
         </div>
       </Modal>
 
-      {/* Delete confirmation */}
       <Modal
         open={showDeleteModal}
         onClose={() => {

@@ -18,6 +18,8 @@ import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import ReminderCard from "@/components/reminders/ReminderCard";
 import DraggableReminder from "@/components/reminders/DraggableReminder";
+import DroppableDateBox from "@/components/reminders/DroppableDateBox";
+import AccountRequiredModal from "@/components/ui/AccountRequiredModal";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   db,
@@ -59,12 +61,24 @@ function parseDateLabel(dateStr: string) {
   return `${dayName} ${d.getMonth() + 1}/${d.getDate()}`;
 }
 
+const DEMO_CASUAL: Reminder[] = [
+  { id: "dc1", text: "Buy groceries", reminderType: "casual", completed: false },
+  { id: "dc2", text: "Call the dentist", reminderType: "casual", completed: true },
+  { id: "dc3", text: "Organize desk", reminderType: "casual", completed: false },
+];
+
+const DEMO_DATED: Reminder[] = [
+  { id: "dd1", text: "Team meeting prep", reminderType: "dated", date: formatDate(new Date().getFullYear(), new Date().getMonth(), 15), completed: false },
+  { id: "dd2", text: "Submit report", reminderType: "dated", date: formatDate(new Date().getFullYear(), new Date().getMonth(), 20), completed: false },
+];
+
 export default function RemindersPage() {
-  const { profile } = useAuth();
+  const { profile, isDemoMode } = useAuth();
   const [tab, setTab] = useState<"casual" | "dated">("casual");
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [newText, setNewText] = useState("");
   const [newDate, setNewDate] = useState("");
+  const [showAccountModal, setShowAccountModal] = useState(false);
   const [viewMonth, setViewMonth] = useState(() => {
     const now = new Date();
     return { year: now.getFullYear(), month: now.getMonth() };
@@ -75,6 +89,11 @@ export default function RemindersPage() {
   );
 
   const loadReminders = useCallback(async () => {
+    if (isDemoMode) {
+      setReminders([...DEMO_CASUAL, ...DEMO_DATED]);
+      return;
+    }
+
     if (!profile?.uid) return;
     try {
       const casualCol = collection(db, "reminders", profile.uid, "casual");
@@ -97,15 +116,27 @@ export default function RemindersPage() {
     } catch {
       // Firebase not configured
     }
-  }, [profile?.uid]);
+  }, [profile?.uid, isDemoMode]);
 
   useEffect(() => {
     loadReminders();
   }, [loadReminders]);
 
+  function guardDemo(): boolean {
+    if (isDemoMode) {
+      setShowAccountModal(true);
+      return true;
+    }
+    return false;
+  }
+
   const addReminder = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
+      if (isDemoMode) {
+        setShowAccountModal(true);
+        return;
+      }
       if (!profile?.uid || !newText.trim()) return;
       const id = `rem_${Date.now()}`;
       const reminder: Reminder = {
@@ -131,11 +162,15 @@ export default function RemindersPage() {
         // offline
       }
     },
-    [profile?.uid, tab, newText, newDate]
+    [profile?.uid, tab, newText, newDate, isDemoMode]
   );
 
   const toggleReminder = useCallback(
     async (id: string) => {
+      if (isDemoMode) {
+        setShowAccountModal(true);
+        return;
+      }
       setReminders((prev) =>
         prev.map((r) => (r.id === id ? { ...r, completed: !r.completed } : r))
       );
@@ -150,11 +185,15 @@ export default function RemindersPage() {
         // offline
       }
     },
-    [profile?.uid, reminders]
+    [profile?.uid, reminders, isDemoMode]
   );
 
   const moveReminderToDate = useCallback(
     async (reminderId: string, newDateStr: string) => {
+      if (isDemoMode) {
+        setShowAccountModal(true);
+        return;
+      }
       setReminders((prev) =>
         prev.map((r) =>
           r.id === reminderId ? { ...r, date: newDateStr } : r
@@ -168,13 +207,12 @@ export default function RemindersPage() {
         // offline
       }
     },
-    [profile?.uid]
+    [profile?.uid, isDemoMode]
   );
 
   const casualReminders = reminders.filter((r) => r.reminderType === "casual");
   const datedReminders = reminders.filter((r) => r.reminderType === "dated");
 
-  // Group dated reminders by date for the current month
   const daysInMonth = getDaysInMonth(viewMonth.year, viewMonth.month);
   const datedByDate = useMemo(() => {
     const grouped: Record<string, Reminder[]> = {};
@@ -185,20 +223,26 @@ export default function RemindersPage() {
     return grouped;
   }, [datedReminders, viewMonth, daysInMonth]);
 
-  const nonEmptyDates = Object.entries(datedByDate).filter(
-    ([, rems]) => rems.length > 0
-  );
+  function getTargetDateFromOver(overId: string): string | null {
+    const overStr = String(overId);
+    if (overStr.startsWith("date-")) {
+      return overStr.replace("date-", "");
+    }
+    const rem = datedReminders.find((r) => r.id === overStr);
+    return rem?.date ?? null;
+  }
 
   function handleDragEnd(event: DragEndEvent) {
+    if (isDemoMode) {
+      setShowAccountModal(true);
+      return;
+    }
     const { active, over } = event;
     if (!over || active.id === over.id) return;
 
     const remId = active.id as string;
-    const overStr = over.id as string;
-
-    // If dropped onto a date container, move to that date
-    if (overStr.startsWith("date-")) {
-      const targetDate = overStr.replace("date-", "");
+    const targetDate = getTargetDateFromOver(over.id as string);
+    if (targetDate) {
       moveReminderToDate(remId, targetDate);
     }
   }
@@ -225,7 +269,6 @@ export default function RemindersPage() {
     <div className="max-w-4xl mx-auto space-y-6">
       <h1 className="text-2xl font-bold text-neutral-dark">Reminders</h1>
 
-      {/* Tabs */}
       <div className="flex gap-2">
         <button
           onClick={() => setTab("casual")}
@@ -249,7 +292,6 @@ export default function RemindersPage() {
         </button>
       </div>
 
-      {/* Add reminder */}
       <Card>
         <form onSubmit={addReminder} className="flex gap-3">
           <Input
@@ -272,7 +314,6 @@ export default function RemindersPage() {
         </form>
       </Card>
 
-      {/* Casual tab */}
       {tab === "casual" && (
         <Card>
           {casualReminders.length === 0 ? (
@@ -295,14 +336,12 @@ export default function RemindersPage() {
         </Card>
       )}
 
-      {/* Dated tab with day-grouped drag-drop */}
       {tab === "dated" && (
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
           onDragEnd={handleDragEnd}
         >
-          {/* Month navigation */}
           <div className="flex items-center justify-between">
             <button
               onClick={prevMonth}
@@ -321,41 +360,50 @@ export default function RemindersPage() {
             </button>
           </div>
 
-          {nonEmptyDates.length === 0 ? (
-            <Card>
-              <p className="text-sm text-neutral-dark/40 py-4 text-center">
-                No dated reminders this month.
-              </p>
-            </Card>
-          ) : (
-            <div className="space-y-4">
-              {nonEmptyDates.map(([dateStr, rems]) => (
-                <Card key={dateStr} className="relative">
-                  <h3 className="text-sm font-semibold text-neutral-dark/60 mb-3">
-                    {parseDateLabel(dateStr)}
-                  </h3>
-                  <SortableContext
-                    items={rems.map((r) => r.id)}
-                    strategy={verticalListSortingStrategy}
-                  >
-                    <div className="space-y-2">
-                      {rems.map((r) => (
-                        <DraggableReminder
-                          key={r.id}
-                          id={r.id}
-                          text={r.text}
-                          completed={r.completed}
-                          onToggle={toggleReminder}
-                        />
-                      ))}
-                    </div>
-                  </SortableContext>
-                </Card>
-              ))}
-            </div>
-          )}
+          <div className="space-y-4">
+            {Array.from({ length: daysInMonth }, (_, i) => {
+              const day = i + 1;
+              const dateStr = formatDate(viewMonth.year, viewMonth.month, day);
+              const rems = datedByDate[dateStr] ?? [];
+              return (
+                <DroppableDateBox key={dateStr} dateStr={dateStr}>
+                  <div className="p-4">
+                    <h3 className="text-sm font-semibold text-neutral-dark/60 mb-3">
+                      {parseDateLabel(dateStr)}
+                    </h3>
+                    <SortableContext
+                      items={rems.map((r) => r.id)}
+                      strategy={verticalListSortingStrategy}
+                    >
+                      <div className="space-y-2">
+                        {rems.map((r) => (
+                          <DraggableReminder
+                            key={r.id}
+                            id={r.id}
+                            text={r.text}
+                            completed={r.completed}
+                            onToggle={toggleReminder}
+                          />
+                        ))}
+                        {rems.length === 0 && (
+                          <p className="text-xs text-neutral-dark/40 py-2">
+                            Drop reminders here
+                          </p>
+                        )}
+                      </div>
+                    </SortableContext>
+                  </div>
+                </DroppableDateBox>
+              );
+            })}
+          </div>
         </DndContext>
       )}
+
+      <AccountRequiredModal
+        open={showAccountModal}
+        onClose={() => setShowAccountModal(false)}
+      />
     </div>
   );
 }

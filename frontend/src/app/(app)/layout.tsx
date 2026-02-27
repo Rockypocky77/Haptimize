@@ -7,19 +7,19 @@ import Sidebar from "@/components/nav/Sidebar";
 import HaptiAiDock from "@/components/hapti-ai/HaptiAiDock";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const { user, profile, loading } = useAuth();
+  const { user, profile, loading, isDemoMode } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
     if (loading) return;
-    if (!user) {
+    if (!user && !isDemoMode) {
       router.replace("/");
       return;
     }
-    if (profile && !profile.onboardingComplete) {
+    if (user && profile && !profile.onboardingComplete) {
       router.replace("/onboarding");
     }
-  }, [user, profile, loading, router]);
+  }, [user, profile, loading, isDemoMode, router]);
 
   if (loading) {
     return (
@@ -29,13 +29,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!user) return null;
+  if (!user && !isDemoMode) return null;
 
   return (
     <div className="min-h-screen bg-neutral-light">
       <Sidebar />
       <main className="ml-64 p-8 min-h-screen">{children}</main>
-      {profile?.aiEnabled !== false && <HaptiAiDock />}
+      {!isDemoMode && profile?.aiEnabled !== false && <HaptiAiDock />}
     </div>
   );
 }
