@@ -1,0 +1,32 @@
+# Env and secrets
+.env
+.env.local
+.env.*.local
+*.env
+
+# Firebase Admin SDK (contains private keys)
+*-firebase-adminsdk-*.json
+firebase-adminsdk*.json
+
+# Dependencies
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# Build outputs
+frontend/.next/
+frontend/out/
+frontend/build/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# Python
+*.egg-info/
+dist/
+build/
