@@ -3,12 +3,15 @@
 import { useState, useEffect, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Button from "@/components/ui/Button";
+import ClickSpark from "@/components/ui/ClickSpark";
 import Input from "@/components/ui/Input";
 import Modal from "@/components/ui/Modal";
 import { api } from "@/lib/api/client";
+import { useTransition } from "@/contexts/TransitionContext";
 
 function VerifyContent() {
   const router = useRouter();
+  const { startTransition } = useTransition();
   const searchParams = useSearchParams();
   const email = searchParams.get("email") ?? "";
 
@@ -62,14 +65,14 @@ function VerifyContent() {
         } catch {
           // Expected — user will login on the landing page
         }
-        router.replace("/onboarding");
+        startTransition("/onboarding");
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : "Verification failed");
       } finally {
         setSubmitting(false);
       }
     },
-    [email, code, router]
+    [email, code, startTransition]
   );
 
   const handleResend = useCallback(
@@ -115,7 +118,7 @@ function VerifyContent() {
       <div className="min-h-screen flex items-center justify-center bg-neutral-light p-6">
         <div className="bg-white rounded-2xl p-8 shadow-sm max-w-sm w-full text-center">
           <p className="text-neutral-dark mb-4">No email provided.</p>
-          <Button onClick={() => router.replace("/")}>Go back</Button>
+          <Button onClick={() => startTransition("/")}>Go back</Button>
         </div>
       </div>
     );
@@ -182,6 +185,7 @@ function VerifyContent() {
         </form>
 
         <div className="mt-4 text-center">
+          <ClickSpark sparkColor="#7FAF8F" sparkSize={8} sparkRadius={14} className="inline-flex">
           <button
             className="text-sm text-primary hover:underline disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
             onClick={() => handleResend()}
@@ -189,6 +193,7 @@ function VerifyContent() {
           >
             Resend code
           </button>
+          </ClickSpark>
         </div>
       </div>
 

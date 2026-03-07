@@ -1,6 +1,10 @@
 #!/bin/bash
 set -e
 
+# c = verbose (show backend/frontend server logs); default = quiet servers
+VERBOSE=false
+[ "$1" = "c" ] && VERBOSE=true
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
@@ -8,21 +12,21 @@ echo "=== Haptimize startup ==="
 
 # Check Python
 if ! command -v python3 &>/dev/null; then
-  echo "Error: python3 not found. Please install Python 3."
+  echo "Error: python3 not found. Please install Python 3." >&2
   exit 1
 fi
 echo "✓ Python: $(python3 --version)"
 
 # Check Node.js
 if ! command -v node &>/dev/null; then
-  echo "Error: node not found. Please install Node.js."
+  echo "Error: node not found. Please install Node.js." >&2
   exit 1
 fi
 echo "✓ Node: $(node --version)"
 
 # Check npm
 if ! command -v npm &>/dev/null; then
-  echo "Error: npm not found. Please install npm."
+  echo "Error: npm not found. Please install npm." >&2
   exit 1
 fi
 echo "✓ npm: $(npm --version)"
@@ -61,9 +65,17 @@ echo "Frontend: http://localhost:3000"
 echo ""
 
 source backend/.venv/bin/activate
-(cd backend && exec python app.py) &
+if $VERBOSE; then
+  (cd backend && exec python app.py) &
+else
+  (cd backend && exec python app.py) &>/dev/null &
+fi
 BACKEND_PID=$!
-(cd frontend && exec npm run dev) &
+if $VERBOSE; then
+  (cd frontend && exec npm run dev) &
+else
+  (cd frontend && exec npm run dev) &>/dev/null &
+fi
 FRONTEND_PID=$!
 
 echo "Backend PID: $BACKEND_PID"

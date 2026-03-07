@@ -9,6 +9,8 @@ interface DraggableReminderProps {
   text: string;
   completed: boolean;
   onToggle: (id: string) => void;
+  onDelete?: (id: string) => void;
+  categoryColor?: string;
 }
 
 export default function DraggableReminder({
@@ -16,6 +18,8 @@ export default function DraggableReminder({
   text,
   completed,
   onToggle,
+  onDelete,
+  categoryColor,
 }: DraggableReminderProps) {
   const {
     attributes,
@@ -40,8 +44,10 @@ export default function DraggableReminder({
         text={text}
         completed={completed}
         onToggle={onToggle}
+        onDelete={onDelete}
         draggable
         dragHandleProps={listeners}
+        categoryColor={categoryColor}
       />
     </div>
   );

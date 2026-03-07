@@ -1,6 +1,8 @@
 "use client";
 
 import { Flame } from "lucide-react";
+import Card from "@/components/ui/Card";
+import CountUp from "@/components/ui/CountUp";
 
 interface StreakCardProps {
   streak: number;
@@ -9,9 +11,9 @@ interface StreakCardProps {
 
 export default function StreakCard({ streak, threshold }: StreakCardProps) {
   return (
-    <div className="flex items-center gap-4 bg-white rounded-2xl p-5 shadow-sm border border-primary-light/30">
+    <Card className="group flex items-center gap-4">
       <div
-        className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+        className={`w-12 h-12 rounded-xl flex items-center justify-center transition-transform duration-300 group-hover:scale-110 ${
           streak > 0 ? "bg-accent/20" : "bg-neutral-light"
         }`}
       >
@@ -22,12 +24,15 @@ export default function StreakCard({ streak, threshold }: StreakCardProps) {
       </div>
       <div>
         <p className="text-2xl font-bold text-neutral-dark">
-          {streak} <span className="text-sm font-normal text-neutral-dark/50">day{streak !== 1 ? "s" : ""}</span>
+          <CountUp from={0} to={streak} duration={1} delay={0.3} />{" "}
+          <span className="text-sm font-normal text-neutral-dark/50">
+            day{streak !== 1 ? "s" : ""}
+          </span>
         </p>
         <p className="text-xs text-neutral-dark/50">
           Goal Streak ({threshold}%+ daily)
         </p>
       </div>
-    </div>
+    </Card>
   );
 }

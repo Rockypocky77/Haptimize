@@ -1,6 +1,7 @@
 "use client";
 
 import { type ButtonHTMLAttributes, type ReactNode } from "react";
+import ClickSpark from "@/components/ui/ClickSpark";
 
 type Variant = "primary" | "secondary" | "accent" | "ghost" | "danger";
 type Size = "sm" | "md" | "lg";
@@ -37,17 +38,22 @@ export default function Button({
   disabled,
   ...props
 }: ButtonProps) {
-  return (
+  const button = (
     <button
       className={`
         inline-flex items-center justify-center font-medium
-        transition-all duration-150 cursor-pointer
+        cursor-pointer
         disabled:opacity-50 disabled:cursor-not-allowed
         ${variantClasses[variant]}
         ${sizeClasses[size]}
         ${fullWidth ? "w-full" : ""}
         ${className}
       `}
+      style={{
+        transition: "transform 500ms cubic-bezier(0.25, 0.1, 0.25, 1), background-color 150ms ease, opacity 150ms ease",
+      }}
+      onMouseEnter={(e) => { if (!disabled && !loading) e.currentTarget.style.transform = "scale(1.05)"; }}
+      onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
       disabled={disabled || loading}
       {...props}
     >
@@ -74,5 +80,17 @@ export default function Button({
       )}
       {children}
     </button>
+  );
+
+  return (
+    <ClickSpark
+      sparkColor={variant === "primary" || variant === "danger" ? "#fff" : "#7FAF8F"}
+      sparkSize={12}
+      sparkRadius={18}
+      sparkCount={8}
+      duration={350}
+    >
+      {button}
+    </ClickSpark>
   );
 }

@@ -1,25 +1,41 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTransition } from "@/contexts/TransitionContext";
 import Sidebar from "@/components/nav/Sidebar";
 import HaptiAiDock from "@/components/hapti-ai/HaptiAiDock";
+import DemoGate from "@/components/ui/DemoGate";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const { user, profile, loading, isDemoMode } = useAuth();
+  const { user, profile, loading } = useAuth();
   const router = useRouter();
+  const { startTransition, endTransition, isTransitioning } = useTransition();
+  const [sidebarExpanded, setSidebarExpanded] = useState(false);
+  const hadUserRef = useRef(false);
+
+  useEffect(() => {
+    if (user) hadUserRef.current = true;
+  }, [user]);
+
+  useEffect(() => {
+    const t = setTimeout(() => endTransition(), 150);
+    return () => clearTimeout(t);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (loading) return;
-    if (!user && !isDemoMode) {
-      router.replace("/");
+    if (!user) {
+      if (!hadUserRef.current) {
+        startTransition("/");
+      }
       return;
     }
-    if (user && profile && !profile.onboardingComplete) {
+    if (profile && !profile.onboardingComplete) {
       router.replace("/onboarding");
     }
-  }, [user, profile, loading, isDemoMode, router]);
+  }, [user, profile, loading, router]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (loading) {
     return (
@@ -29,13 +45,21 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!user && !isDemoMode) return null;
+  if (!user && !isTransitioning) return null;
 
   return (
-    <div className="min-h-screen bg-neutral-light">
-      <Sidebar />
-      <main className="ml-64 p-8 min-h-screen">{children}</main>
-      {!isDemoMode && profile?.aiEnabled !== false && <HaptiAiDock />}
-    </div>
+    <DemoGate>
+      <div className="min-h-screen bg-neutral-light">
+        <Sidebar
+          isExpanded={sidebarExpanded}
+          onExpand={() => setSidebarExpanded(true)}
+          onCollapse={() => setSidebarExpanded(false)}
+        />
+        <main className="p-8 min-h-screen ml-16">
+          {children}
+        </main>
+        {profile?.aiEnabled !== false && <HaptiAiDock />}
+      </div>
+    </DemoGate>
   );
 }

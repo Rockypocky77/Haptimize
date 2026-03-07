@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from collections import defaultdict
 from dataclasses import asdict, dataclass
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 from flask import Blueprint, jsonify, request
 from pydantic import BaseModel, ValidationError, field_validator
@@ -56,7 +56,7 @@ class UpdateReminderRequest(BaseModel):
 
 
 def _now_iso() -> str:
-    return datetime.now(UTC).isoformat()
+    return datetime.now(timezone.utc).isoformat()
 
 
 def _find_reminder(user_id: str, reminder_id: str) -> Reminder | None:

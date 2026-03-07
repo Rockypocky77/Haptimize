@@ -38,10 +38,10 @@ export const api = {
     });
   },
 
-  aiChat(message: string, userId?: string) {
+  aiChat(message: string, userId?: string, history?: { role: string; content: string }[], humanize?: boolean) {
     return request("/api/ai/chat", {
       method: "POST",
-      body: JSON.stringify({ message }),
+      body: JSON.stringify({ message, history: history ?? [], humanize: humanize ?? false }),
       headers: userId ? { "X-User-Id": userId } : {},
     });
   },

@@ -1,5 +1,8 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
+import CountUp from "@/components/ui/CountUp";
+
 interface CompletionCircleProps {
   percentage: number;
   size?: number;
@@ -13,7 +16,25 @@ export default function CompletionCircle({
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const clamped = Math.max(0, Math.min(100, percentage));
-  const offset = circumference - (clamped / 100) * circumference;
+  const targetOffset = circumference - (clamped / 100) * circumference;
+
+  const circleRef = useRef<SVGCircleElement>(null);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    const el = circleRef.current;
+    if (!el) return;
+    el.style.strokeDashoffset = String(circumference);
+
+    const raf = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        el.style.transition = "stroke-dashoffset 1.2s cubic-bezier(0.25, 0.1, 0.25, 1)";
+        el.style.strokeDashoffset = String(targetOffset);
+        setReady(true);
+      });
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [circumference, targetOffset]);
 
   return (
     <div className="relative inline-flex items-center justify-center">
@@ -28,6 +49,7 @@ export default function CompletionCircle({
           opacity={0.25}
         />
         <circle
+          ref={circleRef}
           cx={size / 2}
           cy={size / 2}
           r={radius}
@@ -36,13 +58,19 @@ export default function CompletionCircle({
           strokeWidth={strokeWidth}
           strokeLinecap="round"
           strokeDasharray={circumference}
-          strokeDashoffset={offset}
-          className="transition-all duration-1000 ease-out"
+          strokeDashoffset={circumference}
         />
       </svg>
       <div className="absolute flex flex-col items-center">
         <span className="text-3xl font-bold text-neutral-dark">
-          {Math.round(clamped)}%
+          <CountUp
+            from={0}
+            to={clamped}
+            duration={1.2}
+            delay={0.1}
+            startWhen={ready}
+            suffix="%"
+          />
         </span>
         <span className="text-xs text-neutral-dark/50">completed</span>
       </div>

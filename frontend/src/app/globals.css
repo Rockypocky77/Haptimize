@@ -37,3 +37,83 @@ body {
   transition-duration: 150ms;
   transition-timing-function: ease;
 }
+
+/* Blob animations - GPU-accelerated, smooth 60fps, enter/exit off-screen */
+/* Use 200vw/200vh so largest blob (400px + 58px blur) is fully off-screen before loop on all viewports */
+@keyframes blob-cross-lr {
+  0% { transform: translate3d(-200vw, 0, 0); }
+  100% { transform: translate3d(200vw, 0, 0); }
+}
+@keyframes blob-cross-rl {
+  0% { transform: translate3d(200vw, 0, 0); }
+  100% { transform: translate3d(-200vw, 0, 0); }
+}
+@keyframes blob-cross-tb {
+  0% { transform: translate3d(0, -200vh, 0); }
+  100% { transform: translate3d(0, 200vh, 0); }
+}
+@keyframes blob-cross-bt {
+  0% { transform: translate3d(0, 200vh, 0); }
+  100% { transform: translate3d(0, -200vh, 0); }
+}
+@keyframes blob-diag-tlbr {
+  0% { transform: translate3d(-200vw, -200vh, 0); }
+  100% { transform: translate3d(200vw, 200vh, 0); }
+}
+@keyframes blob-diag-trbl {
+  0% { transform: translate3d(200vw, -200vh, 0); }
+  100% { transform: translate3d(-200vw, 200vh, 0); }
+}
+@keyframes blob-diag-bltr {
+  0% { transform: translate3d(-200vw, 200vh, 0); }
+  100% { transform: translate3d(200vw, -200vh, 0); }
+}
+@keyframes blob-diag-brtl {
+  0% { transform: translate3d(200vw, 200vh, 0); }
+  100% { transform: translate3d(-200vw, -200vh, 0); }
+}
+@keyframes blob-float-1 {
+  0% { transform: translate3d(-200vw, 0, 0); }
+  35% { transform: translate3d(10vw, -8vh, 0); }
+  65% { transform: translate3d(-5vw, 10vh, 0); }
+  100% { transform: translate3d(200vw, 0, 0); }
+}
+@keyframes blob-float-2 {
+  0% { transform: translate3d(200vw, 0, 0); }
+  40% { transform: translate3d(-8vw, 12vh, 0); }
+  70% { transform: translate3d(5vw, -5vh, 0); }
+  100% { transform: translate3d(-200vw, 0, 0); }
+}
+@keyframes blob-float-3 {
+  0% { transform: translate3d(0, -200vh, 0); }
+  50% { transform: translate3d(8vw, 8vh, 0); }
+  100% { transform: translate3d(0, 200vh, 0); }
+}
+
+/* GPU layer + smooth linear timing - linear avoids acceleration jank */
+[class^="blob-"] {
+  will-change: transform;
+  backface-visibility: hidden;
+}
+
+.blob-cross-lr { animation: blob-cross-lr 30s linear infinite; }
+.blob-cross-rl { animation: blob-cross-rl 32s linear infinite 4s; }
+.blob-cross-tb { animation: blob-cross-tb 28s linear infinite 2s; }
+.blob-cross-bt { animation: blob-cross-bt 34s linear infinite 6s; }
+.blob-diag-tlbr { animation: blob-diag-tlbr 36s linear infinite 1s; }
+.blob-diag-trbl { animation: blob-diag-trbl 30s linear infinite 8s; }
+.blob-diag-bltr { animation: blob-diag-bltr 32s linear infinite 3s; }
+.blob-diag-brtl { animation: blob-diag-brtl 34s linear infinite 5s; }
+.blob-float-1 { animation: blob-float-1 24s linear infinite; }
+.blob-float-2 { animation: blob-float-2 26s linear infinite 2s; }
+.blob-float-3 { animation: blob-float-3 22s linear infinite 1s; }
+
+/* Wind lines - solid, slow bending via SVG filter + subtle drift */
+.wind-line-1 { animation: wind-line-drift 14s ease-in-out infinite; }
+.wind-line-2 { animation: wind-line-drift 14s ease-in-out infinite 2s; }
+.wind-line-3 { animation: wind-line-drift 16s ease-in-out infinite 4s; }
+@keyframes wind-line-drift {
+  0%, 100% { transform: translateY(0); }
+  33% { transform: translateY(1.5px); }
+  66% { transform: translateY(-1px); }
+}

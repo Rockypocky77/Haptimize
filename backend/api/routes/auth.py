@@ -4,7 +4,7 @@ import os
 import random
 import re
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from firebase_admin import auth as firebase_auth
 from firebase_admin.exceptions import FirebaseError
@@ -77,7 +77,7 @@ class VerifyCodeRequest(BaseModel):
 
 
 def _now() -> datetime:
-    return datetime.now(UTC)
+    return datetime.now(timezone.utc)
 
 
 def _get_ip() -> str:

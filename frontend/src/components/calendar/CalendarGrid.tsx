@@ -1,25 +1,31 @@
 "use client";
 
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
+import { useDemoGuard } from "@/components/ui/DemoGate";
 import {
   db,
   collection,
   getDocs,
   doc,
-  getDoc,
   updateDoc,
+  deleteDoc,
 } from "@/lib/firebase/client";
+import Card from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
-import AccountRequiredModal from "@/components/ui/AccountRequiredModal";
 import {
   ChevronLeft,
   ChevronRight,
   Check,
   Undo2,
   CalendarDays,
+  Trash2,
 } from "lucide-react";
+import ClickSpark from "@/components/ui/ClickSpark";
+import CategoryFilter from "@/components/reminders/CategoryFilter";
+import type { Category } from "@/components/reminders/AddCategoryModal";
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -32,10 +38,7 @@ interface Reminder {
   text: string;
   date: string;
   completed: boolean;
-}
-
-interface DayStats {
-  completionPct: number;
+  categoryId?: string;
 }
 
 function getDaysInMonth(y: number, m: number) {
@@ -50,27 +53,24 @@ function formatDate(y: number, m: number, d: number) {
   return `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
 
-const DEMO_REMINDERS: Reminder[] = [
-  { id: "cr1", text: "Team standup", date: formatDate(new Date().getFullYear(), new Date().getMonth(), 10), completed: true },
-  { id: "cr2", text: "Gym session", date: formatDate(new Date().getFullYear(), new Date().getMonth(), 10), completed: false },
-  { id: "cr3", text: "Submit assignment", date: formatDate(new Date().getFullYear(), new Date().getMonth(), 18), completed: false },
-  { id: "cr4", text: "Doctor appointment", date: formatDate(new Date().getFullYear(), new Date().getMonth(), 25), completed: false },
-];
+const UNDO_SECONDS = 5;
 
 export default function CalendarGrid() {
-  const { profile, isDemoMode } = useAuth();
+  const { profile } = useAuth();
+  const { isDemo, guardAction } = useDemoGuard();
   const [viewMonth, setViewMonth] = useState(() => {
     const now = new Date();
     return { year: now.getFullYear(), month: now.getMonth() };
   });
   const [reminders, setReminders] = useState<Reminder[]>([]);
-  const [dayStats, setDayStats] = useState<Record<string, DayStats>>({});
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
   const [hoveredDate, setHoveredDate] = useState<string | null>(null);
   const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [editDate, setEditDate] = useState("");
-  const [showAccountModal, setShowAccountModal] = useState(false);
+  const undoTimeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   const today = useMemo(() => {
     const n = new Date();
@@ -78,20 +78,21 @@ export default function CalendarGrid() {
   }, []);
 
   const loadData = useCallback(async () => {
-    if (isDemoMode) {
-      setReminders(DEMO_REMINDERS);
-      const demoStats: Record<string, DayStats> = {};
-      for (let i = 1; i <= 28; i++) {
-        const dateStr = formatDate(new Date().getFullYear(), new Date().getMonth(), i);
-        if (dateStr <= today && Math.random() > 0.4) {
-          demoStats[dateStr] = { completionPct: Math.round(Math.random() * 60 + 40) };
-        }
-      }
-      setDayStats(demoStats);
+    if (!profile?.uid) return;
+
+    if (isDemo) {
+      const today = formatDate(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
+      setReminders([
+        { id: "demo_cd1", text: "Submit project report", date: today, completed: false, categoryId: "demo_cat1" },
+        { id: "demo_cd2", text: "Team standup meeting", date: today, completed: false, categoryId: "demo_cat2" },
+      ]);
+      setCategories([
+        { id: "demo_cat1", name: "Work", color: "#7FAF8F" },
+        { id: "demo_cat2", name: "Personal", color: "#F2C94C" },
+      ]);
       return;
     }
 
-    if (!profile?.uid) return;
     try {
       const datedCol = collection(db, "reminders", profile.uid, "dated");
       const snap = await getDocs(datedCol);
@@ -99,62 +100,85 @@ export default function CalendarGrid() {
         snap.docs.map((d) => ({ id: d.id, ...d.data() } as Reminder))
       );
 
-      const stats: Record<string, DayStats> = {};
-      const daysInMonth = getDaysInMonth(viewMonth.year, viewMonth.month);
-      for (let i = 1; i <= daysInMonth; i++) {
-        const dateStr = formatDate(viewMonth.year, viewMonth.month, i);
-        const logRef = doc(db, "habitLogs", profile.uid, "daily", dateStr);
-        const logSnap = await getDoc(logRef);
-        if (logSnap.exists()) {
-          stats[dateStr] = { completionPct: logSnap.data().completionPct ?? 0 };
-        }
-      }
-      setDayStats(stats);
+      const categoriesCol = collection(db, "categories", profile.uid, "items");
+      const categoriesSnap = await getDocs(categoriesCol);
+      setCategories(
+        categoriesSnap.docs.map((d) => ({ id: d.id, ...d.data() } as Category))
+      );
     } catch {
       // Firebase not configured
     }
-  }, [profile?.uid, viewMonth, isDemoMode, today]);
+  }, [profile?.uid, viewMonth, isDemo]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
-  function guardDemo(): boolean {
-    if (isDemoMode) {
-      setShowAccountModal(true);
-      return true;
-    }
-    return false;
-  }
+  useEffect(() => {
+    const onFocus = () => loadData();
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") loadData();
+    });
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      undoTimeoutsRef.current.forEach((t) => clearTimeout(t));
+      undoTimeoutsRef.current.clear();
+    };
+  }, [loadData]);
+
+  const removeReminder = useCallback(
+    (id: string) => {
+      if (!guardAction("deleting reminders")) return;
+      setReminders((prev) => prev.filter((r) => r.id !== id));
+      if (!profile?.uid) return;
+      const ref = doc(db, "reminders", profile.uid, "dated", id);
+      deleteDoc(ref).catch(() => {});
+    },
+    [profile?.uid]
+  );
 
   const toggleReminder = useCallback(
     async (id: string) => {
-      if (isDemoMode) {
-        setShowAccountModal(true);
-        return;
-      }
-      setReminders((prev) =>
-        prev.map((r) => (r.id === id ? { ...r, completed: !r.completed } : r))
-      );
-      if (!profile?.uid) return;
+      if (!guardAction("managing reminders")) return;
       const rem = reminders.find((r) => r.id === id);
       if (!rem) return;
+
+      const wasCompleted = rem.completed;
+      const nowCompleted = !wasCompleted;
+
+      if (wasCompleted) {
+        const t = undoTimeoutsRef.current.get(id);
+        if (t) {
+          clearTimeout(t);
+          undoTimeoutsRef.current.delete(id);
+        }
+      }
+
+      setReminders((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, completed: nowCompleted } : r))
+      );
+      if (!profile?.uid) return;
       try {
         const ref = doc(db, "reminders", profile.uid, "dated", id);
-        await updateDoc(ref, { completed: !rem.completed });
+        await updateDoc(ref, { completed: nowCompleted });
       } catch {
         // offline
       }
+
+      if (nowCompleted) {
+        const t = setTimeout(() => {
+          undoTimeoutsRef.current.delete(id);
+          removeReminder(id);
+        }, UNDO_SECONDS * 1000);
+        undoTimeoutsRef.current.set(id, t);
+      }
     },
-    [profile?.uid, reminders, isDemoMode]
+    [profile?.uid, reminders, removeReminder]
   );
 
   const saveEdit = useCallback(
     async (id: string) => {
-      if (isDemoMode) {
-        setShowAccountModal(true);
-        return;
-      }
       if (!profile?.uid) return;
       setReminders((prev) =>
         prev.map((r) =>
@@ -174,20 +198,33 @@ export default function CalendarGrid() {
         // offline
       }
     },
-    [profile?.uid, editText, editDate, isDemoMode]
+    [profile?.uid, editText, editDate]
   );
 
   const daysInMonth = getDaysInMonth(viewMonth.year, viewMonth.month);
   const firstDay = getFirstDayOfWeek(viewMonth.year, viewMonth.month);
 
+  const filteredReminders = useMemo(
+    () =>
+      categoryFilter
+        ? reminders.filter((r) => r.categoryId === categoryFilter)
+        : reminders,
+    [reminders, categoryFilter]
+  );
+
+  const categoryMap = useMemo(
+    () => Object.fromEntries(categories.map((c) => [c.id, c])),
+    [categories]
+  );
+
   const remindersByDate = useMemo(() => {
     const grouped: Record<string, Reminder[]> = {};
-    reminders.forEach((r) => {
+    filteredReminders.forEach((r) => {
       if (!grouped[r.date]) grouped[r.date] = [];
       grouped[r.date].push(r);
     });
     return grouped;
-  }, [reminders]);
+  }, [filteredReminders]);
 
   function prevMonth() {
     setViewMonth((p) =>
@@ -203,15 +240,6 @@ export default function CalendarGrid() {
         ? { year: p.year + 1, month: 0 }
         : { year: p.year, month: p.month + 1 }
     );
-  }
-
-  function getDateFill(dateStr: string) {
-    const rems = remindersByDate[dateStr] ?? [];
-    const stats = dayStats[dateStr];
-    const habitPct = stats?.completionPct ?? 0;
-    if (rems.length === 0) return habitPct;
-    const remPct = (rems.filter((r) => r.completed).length / rems.length) * 100;
-    return Math.round((habitPct + remPct) / 2);
   }
 
   const isPast = (dateStr: string) => dateStr < today;
@@ -245,36 +273,58 @@ export default function CalendarGrid() {
 
   return (
     <div className="space-y-4">
+      {/* Month nav + filter */}
       <div className="flex items-center justify-between">
-        <button
-          onClick={prevMonth}
-          className="p-2 rounded-lg hover:bg-white text-neutral-dark/50 cursor-pointer"
-        >
-          <ChevronLeft size={20} />
-        </button>
-        <span className="text-lg font-semibold text-neutral-dark">
-          {MONTHS[viewMonth.month]} {viewMonth.year}
-        </span>
-        <button
-          onClick={nextMonth}
-          className="p-2 rounded-lg hover:bg-white text-neutral-dark/50 cursor-pointer"
-        >
-          <ChevronRight size={20} />
-        </button>
+        <div className="flex items-center gap-1">
+          <ClickSpark sparkColor="#7FAF8F" sparkSize={8} sparkRadius={14} className="inline-flex">
+          <button
+            onClick={prevMonth}
+            className="p-2 rounded-lg hover:bg-white text-neutral-dark/50 cursor-pointer"
+            style={{ transition: "transform 500ms cubic-bezier(0.25, 0.1, 0.25, 1)" }}
+            onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.15)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
+          >
+            <ChevronLeft size={20} />
+          </button>
+          </ClickSpark>
+          <span className="text-lg font-semibold text-neutral-dark px-2">
+            {MONTHS[viewMonth.month]} {viewMonth.year}
+          </span>
+          <ClickSpark sparkColor="#7FAF8F" sparkSize={8} sparkRadius={14} className="inline-flex">
+          <button
+            onClick={nextMonth}
+            className="p-2 rounded-lg hover:bg-white text-neutral-dark/50 cursor-pointer"
+            style={{ transition: "transform 500ms cubic-bezier(0.25, 0.1, 0.25, 1)" }}
+            onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.15)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
+          >
+            <ChevronRight size={20} />
+          </button>
+          </ClickSpark>
+        </div>
+        {categories.length > 0 && (
+          <CategoryFilter
+            categories={categories}
+            value={categoryFilter}
+            onChange={setCategoryFilter}
+          />
+        )}
       </div>
 
-      <div className="grid grid-cols-7 gap-1">
+      {/* Day headers */}
+      <div className="grid grid-cols-7 gap-2">
         {DAY_HEADERS.map((d) => (
           <div
             key={d}
-            className="text-center text-xs font-medium text-neutral-dark/40 py-2"
+            className="text-center text-sm font-medium text-neutral-dark/40 py-3"
           >
             {d}
           </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-7 gap-1">
+      {/* Calendar cells */}
+      <div className="grid grid-cols-7 gap-2">
         {Array.from({ length: firstDay }, (_, i) => (
           <div key={`empty-${i}`} />
         ))}
@@ -282,7 +332,6 @@ export default function CalendarGrid() {
         {Array.from({ length: daysInMonth }, (_, i) => {
           const day = i + 1;
           const dateStr = formatDate(viewMonth.year, viewMonth.month, day);
-          const fillPct = getDateFill(dateStr);
           const isToday = dateStr === today;
           const rems = remindersByDate[dateStr] ?? [];
           const isHovered = hoveredDate === dateStr;
@@ -292,30 +341,24 @@ export default function CalendarGrid() {
               key={dateStr}
               className="relative"
               onMouseEnter={() => showPopup(dateStr)}
-              onMouseLeave={() => hidePopup(120)}
+              onMouseLeave={() => hidePopup(80)}
             >
               <div
+                style={{
+                  transform: isHovered ? "scale(1.04)" : "scale(1)",
+                  boxShadow: isHovered ? "0 4px 12px rgba(0,0,0,0.08)" : "0 1px 3px rgba(0,0,0,0.04)",
+                  transition: "transform 500ms cubic-bezier(0.25, 0.1, 0.25, 1), box-shadow 500ms cubic-bezier(0.25, 0.1, 0.25, 1), border-color 500ms ease",
+                }}
                 className={`
-                  relative flex rounded-xl p-2 min-h-[72px] cursor-pointer
-                  border transition-colors
-                  ${isToday ? "border-primary" : "border-transparent"}
-                  ${isHovered ? "bg-white shadow-sm" : "bg-white/60"}
+                  relative flex rounded-xl p-3 min-h-[90px] cursor-pointer
+                  border-2 origin-center
+                  ${isToday ? "border-primary bg-primary/5" : "border-primary-light/30 bg-white"}
+                  ${isHovered ? "border-primary-light/50" : ""}
                 `}
               >
-                <div className="absolute left-0 top-2 bottom-2 w-1 rounded-full bg-primary-light/30 overflow-hidden">
-                  <div
-                    className="absolute bottom-0 w-full rounded-full transition-all duration-500"
-                    style={{
-                      height: `${fillPct}%`,
-                      backgroundColor:
-                        fillPct === 100 ? "#F2C94C" : "#7FAF8F",
-                    }}
-                  />
-                </div>
-
-                <div className="ml-2.5 flex-1">
+                <div className="flex-1 min-w-0">
                   <span
-                    className={`text-xs font-medium ${
+                    className={`text-sm font-medium ${
                       isToday ? "text-primary" : "text-neutral-dark/60"
                     }`}
                   >
@@ -323,14 +366,18 @@ export default function CalendarGrid() {
                   </span>
                   {rems.length > 0 && (
                     <div className="mt-1 flex gap-0.5">
-                      {rems.slice(0, 3).map((r) => (
-                        <div
-                          key={r.id}
-                          className={`w-1.5 h-1.5 rounded-full ${
-                            r.completed ? "bg-primary" : "bg-accent"
-                          }`}
-                        />
-                      ))}
+                      {rems.slice(0, 3).map((r) => {
+                        const catColor = r.categoryId ? categoryMap[r.categoryId]?.color : null;
+                        return (
+                          <div
+                            key={r.id}
+                            className={`w-1.5 h-1.5 rounded-full ${
+                              r.completed ? "bg-primary" : "bg-accent"
+                            }`}
+                            style={catColor && !r.completed ? { backgroundColor: catColor } : undefined}
+                          />
+                        );
+                      })}
                       {rems.length > 3 && (
                         <span className="text-[9px] text-neutral-dark/40 ml-0.5">
                           +{rems.length - 3}
@@ -341,21 +388,23 @@ export default function CalendarGrid() {
                 </div>
               </div>
 
-              {isHovered && (
-                <div
+              {/* Hover popup */}
+              <AnimatePresence>
+                {isHovered && (
+                <motion.div
+                  key={`popup-${dateStr}`}
+                  initial={{ opacity: 0, y: 8, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 6, scale: 0.97 }}
+                  transition={{ duration: 0.45, ease: [0.25, 0.1, 0.25, 1] }}
                   className="absolute z-30 top-full mt-1 left-1/2 -translate-x-1/2 w-64 bg-white rounded-2xl shadow-xl border border-primary-light/30 p-4"
                   onMouseEnter={() => showPopup(dateStr)}
                   onMouseLeave={() => hidePopup(0)}
                 >
-                  <div className="flex items-center justify-between mb-2">
+                  <div className="mb-2">
                     <span className="text-sm font-semibold text-neutral-dark">
                       {MONTHS[viewMonth.month]} {day}
                     </span>
-                    {isPast(dateStr) && (
-                      <span className="text-xs text-primary font-medium">
-                        {fillPct}% done
-                      </span>
-                    )}
                   </div>
 
                   {rems.length === 0 ? (
@@ -365,12 +414,26 @@ export default function CalendarGrid() {
                         : "No reminders set"}
                     </p>
                   ) : (
-                    <div className="space-y-2 max-h-48 overflow-y-auto">
-                      {rems.map((r) => (
-                        <div
-                          key={r.id}
-                          className="flex items-center gap-2 text-xs group"
-                        >
+                    <div className="max-h-48 overflow-y-auto">
+                      <div className="flex flex-col gap-2">
+                        <AnimatePresence mode="popLayout">
+                          {rems.map((r) => {
+                            const catColor = r.categoryId ? categoryMap[r.categoryId]?.color : undefined;
+                            return (
+                            <motion.div
+                              key={r.id}
+                              layout
+                              initial={{ opacity: 0, y: 12, scale: 0.98 }}
+                              animate={{ opacity: 1, y: 0, scale: 1 }}
+                              exit={{ opacity: 0, height: 0, marginBottom: 0, overflow: "hidden" }}
+                              transition={{ duration: 0.3, ease: [0.32, 0.72, 0, 1] }}
+                              className="flex items-center gap-2 text-xs group pl-2 rounded-lg"
+                              style={
+                                catColor
+                                  ? { borderLeft: `3px solid ${catColor}` }
+                                  : undefined
+                              }
+                            >
                           {editingId === r.id ? (
                             <div className="flex-1 space-y-1">
                               <Input
@@ -379,6 +442,7 @@ export default function CalendarGrid() {
                                 className="text-xs py-1"
                               />
                               <div className="flex items-center gap-2">
+                                <ClickSpark sparkColor="#7FAF8F" sparkSize={6} sparkRadius={10} className="inline-flex">
                                 <button
                                   onClick={() => {
                                     setEditingId(r.id);
@@ -388,6 +452,7 @@ export default function CalendarGrid() {
                                 >
                                   <CalendarDays size={12} />
                                 </button>
+                                </ClickSpark>
                                 <Input
                                   type="date"
                                   value={editDate}
@@ -415,11 +480,9 @@ export default function CalendarGrid() {
                             </div>
                           ) : (
                             <>
+                              <ClickSpark sparkColor="#7FAF8F" sparkSize={6} sparkRadius={10} className="inline-flex">
                               <button
-                                onClick={() => {
-                                  if (guardDemo()) return;
-                                  toggleReminder(r.id);
-                                }}
+                                onClick={() => toggleReminder(r.id)}
                                 className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 cursor-pointer ${
                                   r.completed
                                     ? "bg-primary border-primary text-white"
@@ -430,9 +493,10 @@ export default function CalendarGrid() {
                                   <Check size={10} strokeWidth={3} />
                                 )}
                               </button>
+                              </ClickSpark>
+                              <ClickSpark sparkColor="#7FAF8F" sparkSize={6} sparkRadius={10} className="flex-1 min-w-0">
                               <span
                                 onClick={() => {
-                                  if (guardDemo()) return;
                                   setEditingId(r.id);
                                   setEditText(r.text);
                                   setEditDate(r.date);
@@ -445,34 +509,42 @@ export default function CalendarGrid() {
                               >
                                 {r.text}
                               </span>
+                              </ClickSpark>
                               {r.completed && (
+                                <ClickSpark sparkColor="#7FAF8F" sparkSize={6} sparkRadius={10} className="inline-flex">
                                 <button
-                                  onClick={() => {
-                                    if (guardDemo()) return;
-                                    toggleReminder(r.id);
-                                  }}
+                                  onClick={() => toggleReminder(r.id)}
                                   className="text-neutral-dark/30 hover:text-primary cursor-pointer"
                                 >
                                   <Undo2 size={12} />
                                 </button>
+                                </ClickSpark>
                               )}
+                              <ClickSpark sparkColor="#7FAF8F" sparkSize={6} sparkRadius={10} className="inline-flex">
+                              <button
+                                onClick={() => removeReminder(r.id)}
+                                className="p-1 rounded text-neutral-dark/30 hover:text-error cursor-pointer transition-colors"
+                                title="Delete"
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                              </ClickSpark>
                             </>
                           )}
-                        </div>
-                      ))}
+                          </motion.div>
+                            );
+                          })}
+                        </AnimatePresence>
+                      </div>
                     </div>
                   )}
-                </div>
+                </motion.div>
               )}
+              </AnimatePresence>
             </div>
           );
         })}
       </div>
-
-      <AccountRequiredModal
-        open={showAccountModal}
-        onClose={() => setShowAccountModal(false)}
-      />
     </div>
   );
 }

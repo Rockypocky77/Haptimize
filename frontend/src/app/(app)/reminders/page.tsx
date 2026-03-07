@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   DndContext,
   closestCenter,
@@ -13,13 +13,16 @@ import {
   SortableContext,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
+import { motion, AnimatePresence } from "framer-motion";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import ReminderCard from "@/components/reminders/ReminderCard";
 import DraggableReminder from "@/components/reminders/DraggableReminder";
 import DroppableDateBox from "@/components/reminders/DroppableDateBox";
-import AccountRequiredModal from "@/components/ui/AccountRequiredModal";
+import CategorySelector from "@/components/reminders/CategorySelector";
+import AddCategoryModal, { type Category } from "@/components/reminders/AddCategoryModal";
+import CategoryFilter from "@/components/reminders/CategoryFilter";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   db,
@@ -32,6 +35,11 @@ import {
   serverTimestamp,
 } from "@/lib/firebase/client";
 import { Plus, ChevronLeft, ChevronRight } from "lucide-react";
+import { useDemoGuard } from "@/components/ui/DemoGate";
+import FadeIn from "@/components/ui/FadeIn";
+import ClickSpark from "@/components/ui/ClickSpark";
+
+const UNDO_SECONDS = 5;
 
 interface Reminder {
   id: string;
@@ -39,7 +47,16 @@ interface Reminder {
   reminderType: "casual" | "dated";
   date?: string;
   completed: boolean;
+  categoryId?: string;
 }
+
+const DEMO_REMINDERS: Reminder[] = [
+  { id: "demo_c1", text: "Buy groceries", reminderType: "casual", completed: false, categoryId: "demo_cat2" },
+  { id: "demo_c2", text: "Call dentist for appointment", reminderType: "casual", completed: false, categoryId: "demo_cat2" },
+  { id: "demo_c3", text: "Reply to Sarah's email", reminderType: "casual", completed: false, categoryId: "demo_cat1" },
+  { id: "demo_d1", text: "Submit project report", reminderType: "dated", date: new Date().toISOString().split("T")[0], completed: false, categoryId: "demo_cat1" },
+  { id: "demo_d2", text: "Team standup meeting", reminderType: "dated", date: new Date().toISOString().split("T")[0], completed: false, categoryId: "demo_cat1" },
+];
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -61,24 +78,17 @@ function parseDateLabel(dateStr: string) {
   return `${dayName} ${d.getMonth() + 1}/${d.getDate()}`;
 }
 
-const DEMO_CASUAL: Reminder[] = [
-  { id: "dc1", text: "Buy groceries", reminderType: "casual", completed: false },
-  { id: "dc2", text: "Call the dentist", reminderType: "casual", completed: true },
-  { id: "dc3", text: "Organize desk", reminderType: "casual", completed: false },
-];
-
-const DEMO_DATED: Reminder[] = [
-  { id: "dd1", text: "Team meeting prep", reminderType: "dated", date: formatDate(new Date().getFullYear(), new Date().getMonth(), 15), completed: false },
-  { id: "dd2", text: "Submit report", reminderType: "dated", date: formatDate(new Date().getFullYear(), new Date().getMonth(), 20), completed: false },
-];
-
 export default function RemindersPage() {
-  const { profile, isDemoMode } = useAuth();
+  const { profile } = useAuth();
+  const { isDemo, guardAction } = useDemoGuard();
   const [tab, setTab] = useState<"casual" | "dated">("casual");
   const [reminders, setReminders] = useState<Reminder[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [newText, setNewText] = useState("");
   const [newDate, setNewDate] = useState("");
-  const [showAccountModal, setShowAccountModal] = useState(false);
+  const [newCategoryId, setNewCategoryId] = useState<string | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+  const [showAddCategory, setShowAddCategory] = useState(false);
   const [viewMonth, setViewMonth] = useState(() => {
     const now = new Date();
     return { year: now.getFullYear(), month: now.getMonth() };
@@ -87,14 +97,20 @@ export default function RemindersPage() {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
   );
+  const undoTimeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   const loadReminders = useCallback(async () => {
-    if (isDemoMode) {
-      setReminders([...DEMO_CASUAL, ...DEMO_DATED]);
+    if (!profile?.uid) return;
+
+    if (isDemo) {
+      setReminders(DEMO_REMINDERS);
+      setCategories([
+        { id: "demo_cat1", name: "Work", color: "#7FAF8F" },
+        { id: "demo_cat2", name: "Personal", color: "#F2C94C" },
+      ]);
       return;
     }
 
-    if (!profile?.uid) return;
     try {
       const casualCol = collection(db, "reminders", profile.uid, "casual");
       const casualSnap = await getDocs(casualCol);
@@ -113,30 +129,57 @@ export default function RemindersPage() {
       })) as Reminder[];
 
       setReminders([...casual, ...dated]);
+
+      const categoriesCol = collection(db, "categories", profile.uid, "items");
+      const categoriesSnap = await getDocs(categoriesCol);
+      setCategories(
+        categoriesSnap.docs.map((d) => ({ id: d.id, ...d.data() } as Category))
+      );
     } catch {
       // Firebase not configured
     }
-  }, [profile?.uid, isDemoMode]);
+  }, [profile?.uid, isDemo]);
 
   useEffect(() => {
     loadReminders();
   }, [loadReminders]);
 
-  function guardDemo(): boolean {
-    if (isDemoMode) {
-      setShowAccountModal(true);
-      return true;
-    }
-    return false;
-  }
+  useEffect(() => {
+    const onFocus = () => loadReminders();
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") loadReminders();
+    });
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      undoTimeoutsRef.current.forEach((t) => clearTimeout(t));
+      undoTimeoutsRef.current.clear();
+    };
+  }, [loadReminders]);
+
+  const addCategory = useCallback(
+    async (name: string, color: string) => {
+      if (!guardAction("creating categories")) return;
+      if (!profile?.uid) return;
+      const id = `cat_${Date.now()}`;
+      const category: Category = { id, name, color };
+      setCategories((prev) => [...prev, category]);
+      setNewCategoryId(id);
+      if (isDemo) return;
+      try {
+        const ref = doc(db, "categories", profile.uid, "items", id);
+        await setDoc(ref, { name, color });
+      } catch {
+        // offline
+      }
+    },
+    [profile?.uid, isDemo, guardAction]
+  );
 
   const addReminder = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
-      if (isDemoMode) {
-        setShowAccountModal(true);
-        return;
-      }
+      if (!guardAction("creating reminders")) return;
       if (!profile?.uid || !newText.trim()) return;
       const id = `rem_${Date.now()}`;
       const reminder: Reminder = {
@@ -145,6 +188,7 @@ export default function RemindersPage() {
         reminderType: tab,
         date: tab === "dated" ? newDate || undefined : undefined,
         completed: false,
+        categoryId: newCategoryId ?? undefined,
       };
       setReminders((prev) => [...prev, reminder]);
       setNewText("");
@@ -156,44 +200,72 @@ export default function RemindersPage() {
           text: reminder.text,
           date: reminder.date ?? null,
           completed: false,
+          categoryId: reminder.categoryId ?? null,
           createdAt: serverTimestamp(),
         });
       } catch {
         // offline
       }
     },
-    [profile?.uid, tab, newText, newDate, isDemoMode]
+    [profile?.uid, tab, newText, newDate, newCategoryId]
+  );
+
+  const removeReminder = useCallback(
+    (id: string, reminderType: "casual" | "dated") => {
+      if (!guardAction("deleting reminders")) return;
+      setReminders((prev) => prev.filter((r) => r.id !== id));
+      if (!profile?.uid) return;
+      const subCol = reminderType;
+      const ref = doc(db, "reminders", profile.uid, subCol, id);
+      deleteDoc(ref).catch(() => {});
+    },
+    [profile?.uid]
   );
 
   const toggleReminder = useCallback(
     async (id: string) => {
-      if (isDemoMode) {
-        setShowAccountModal(true);
-        return;
-      }
-      setReminders((prev) =>
-        prev.map((r) => (r.id === id ? { ...r, completed: !r.completed } : r))
-      );
-      if (!profile?.uid) return;
+      if (!guardAction("managing reminders")) return;
       const rem = reminders.find((r) => r.id === id);
       if (!rem) return;
+
+      const wasCompleted = rem.completed;
+      const nowCompleted = !wasCompleted;
+
+      // If undoing (was completed, now uncompleting), clear the removal timer
+      if (wasCompleted) {
+        const t = undoTimeoutsRef.current.get(id);
+        if (t) {
+          clearTimeout(t);
+          undoTimeoutsRef.current.delete(id);
+        }
+      }
+
+      setReminders((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, completed: nowCompleted } : r))
+      );
+      if (!profile?.uid) return;
       try {
         const subCol = rem.reminderType === "casual" ? "casual" : "dated";
         const ref = doc(db, "reminders", profile.uid, subCol, id);
-        await updateDoc(ref, { completed: !rem.completed });
+        await updateDoc(ref, { completed: nowCompleted });
       } catch {
         // offline
       }
+
+      // If just completed, start 5s timer to remove
+      if (nowCompleted) {
+        const t = setTimeout(() => {
+          undoTimeoutsRef.current.delete(id);
+          removeReminder(id, rem.reminderType);
+        }, UNDO_SECONDS * 1000);
+        undoTimeoutsRef.current.set(id, t);
+      }
     },
-    [profile?.uid, reminders, isDemoMode]
+    [profile?.uid, reminders, removeReminder]
   );
 
   const moveReminderToDate = useCallback(
     async (reminderId: string, newDateStr: string) => {
-      if (isDemoMode) {
-        setShowAccountModal(true);
-        return;
-      }
       setReminders((prev) =>
         prev.map((r) =>
           r.id === reminderId ? { ...r, date: newDateStr } : r
@@ -207,12 +279,30 @@ export default function RemindersPage() {
         // offline
       }
     },
-    [profile?.uid, isDemoMode]
+    [profile?.uid]
   );
 
-  const casualReminders = reminders.filter((r) => r.reminderType === "casual");
-  const datedReminders = reminders.filter((r) => r.reminderType === "dated");
+  const categoryMap = useMemo(
+    () => Object.fromEntries(categories.map((c) => [c.id, c])),
+    [categories]
+  );
 
+  const filterByCategory = useCallback(
+    (list: Reminder[]) =>
+      categoryFilter
+        ? list.filter((r) => r.categoryId === categoryFilter)
+        : list,
+    [categoryFilter]
+  );
+
+  const casualReminders = filterByCategory(
+    reminders.filter((r) => r.reminderType === "casual")
+  );
+  const datedReminders = filterByCategory(
+    reminders.filter((r) => r.reminderType === "dated")
+  );
+
+  // Group dated reminders by date for the current month
   const daysInMonth = getDaysInMonth(viewMonth.year, viewMonth.month);
   const datedByDate = useMemo(() => {
     const grouped: Record<string, Reminder[]> = {};
@@ -228,15 +318,12 @@ export default function RemindersPage() {
     if (overStr.startsWith("date-")) {
       return overStr.replace("date-", "");
     }
+    // Dropped on another reminder — use that reminder's date
     const rem = datedReminders.find((r) => r.id === overStr);
     return rem?.date ?? null;
   }
 
   function handleDragEnd(event: DragEndEvent) {
-    if (isDemoMode) {
-      setShowAccountModal(true);
-      return;
-    }
     const { active, over } = event;
     if (!over || active.id === over.id) return;
 
@@ -267,33 +354,48 @@ export default function RemindersPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <h1 className="text-2xl font-bold text-neutral-dark">Reminders</h1>
+      <FadeIn delay={0}>
+        <h1 className="text-2xl font-bold text-neutral-dark">Reminders</h1>
+      </FadeIn>
 
+      {/* Tabs */}
+      <FadeIn delay={0.1}>
       <div className="flex gap-2">
+        <ClickSpark sparkColor="#7FAF8F" sparkSize={10} sparkRadius={18} className="h-auto min-h-0">
         <button
           onClick={() => setTab("casual")}
-          className={`px-5 py-2 rounded-xl text-sm font-medium cursor-pointer transition-colors ${
+          className={`px-5 py-2 rounded-xl text-sm font-medium cursor-pointer shadow-sm ${
             tab === "casual"
               ? "bg-primary text-white"
               : "bg-white text-neutral-dark/60 hover:bg-primary-light/20"
           }`}
+          style={{ transition: "transform 500ms cubic-bezier(0.25, 0.1, 0.25, 1), background-color 150ms ease, color 150ms ease" }}
+          onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.06)"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
         >
           Casual
         </button>
         <button
           onClick={() => setTab("dated")}
-          className={`px-5 py-2 rounded-xl text-sm font-medium cursor-pointer transition-colors ${
+          className={`px-5 py-2 rounded-xl text-sm font-medium cursor-pointer shadow-sm ${
             tab === "dated"
               ? "bg-primary text-white"
               : "bg-white text-neutral-dark/60 hover:bg-primary-light/20"
           }`}
+          style={{ transition: "transform 500ms cubic-bezier(0.25, 0.1, 0.25, 1), background-color 150ms ease, color 150ms ease" }}
+          onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.06)"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
         >
           Dated
         </button>
+        </ClickSpark>
       </div>
+      </FadeIn>
 
+      {/* Add reminder */}
+      <FadeIn delay={0.15}>
       <Card>
-        <form onSubmit={addReminder} className="flex gap-3">
+        <form onSubmit={addReminder} className="flex gap-3 items-center">
           <Input
             placeholder="Add a reminder..."
             value={newText}
@@ -308,56 +410,115 @@ export default function RemindersPage() {
               className="w-40"
             />
           )}
+          <CategorySelector
+            categories={categories}
+            value={newCategoryId}
+            onChange={setNewCategoryId}
+            onAddCategory={() => setShowAddCategory(true)}
+          />
           <Button type="submit" disabled={!newText.trim()}>
             <Plus size={18} />
           </Button>
         </form>
       </Card>
+      </FadeIn>
 
+      <AddCategoryModal
+        open={showAddCategory}
+        onClose={() => setShowAddCategory(false)}
+        onAdd={addCategory}
+      />
+
+      {/* Casual tab */}
       {tab === "casual" && (
-        <Card>
+        <FadeIn delay={0.25}>
+        <Card className="overflow-visible">
+          {categories.length > 0 && (
+            <div className="flex justify-end mb-3">
+              <CategoryFilter
+                categories={categories}
+                value={categoryFilter}
+                onChange={setCategoryFilter}
+              />
+            </div>
+          )}
           {casualReminders.length === 0 ? (
             <p className="text-sm text-neutral-dark/40 py-4 text-center">
               No casual reminders yet.
             </p>
           ) : (
-            <div className="space-y-2">
-              {casualReminders.map((r) => (
-                <ReminderCard
-                  key={r.id}
-                  id={r.id}
-                  text={r.text}
-                  completed={r.completed}
-                  onToggle={toggleReminder}
-                />
-              ))}
+            <div className="flex flex-col gap-2 overflow-visible">
+              <AnimatePresence mode="popLayout">
+                {casualReminders.map((r) => (
+                  <motion.div
+                    key={r.id}
+                    layout
+                    initial={{ opacity: 0, y: 12, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, height: 0, marginTop: 0, marginBottom: 0, paddingTop: 0, paddingBottom: 0, overflow: "hidden" }}
+                    transition={{ duration: 0.3, ease: [0.32, 0.72, 0, 1] }}
+                  >
+                    <ReminderCard
+                      id={r.id}
+                      text={r.text}
+                      completed={r.completed}
+                      onToggle={toggleReminder}
+                      onDelete={(id) => removeReminder(id, "casual")}
+                      categoryColor={r.categoryId ? categoryMap[r.categoryId]?.color : undefined}
+                    />
+                  </motion.div>
+                ))}
+              </AnimatePresence>
             </div>
           )}
         </Card>
+        </FadeIn>
       )}
 
+      {/* Dated tab with day-grouped drag-drop */}
       {tab === "dated" && (
+        <FadeIn delay={0.25}>
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
           onDragEnd={handleDragEnd}
         >
-          <div className="flex items-center justify-between">
-            <button
-              onClick={prevMonth}
-              className="p-2 rounded-lg hover:bg-white text-neutral-dark/50 cursor-pointer"
-            >
-              <ChevronLeft size={20} />
-            </button>
-            <span className="text-sm font-semibold text-neutral-dark">
-              {MONTHS[viewMonth.month]} {viewMonth.year}
-            </span>
-            <button
-              onClick={nextMonth}
-              className="p-2 rounded-lg hover:bg-white text-neutral-dark/50 cursor-pointer"
-            >
-              <ChevronRight size={20} />
-            </button>
+          {/* Month navigation + filter */}
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-1">
+              <ClickSpark sparkColor="#7FAF8F" sparkSize={8} sparkRadius={14} className="inline-flex">
+              <button
+                onClick={prevMonth}
+                className="p-2 rounded-lg hover:bg-white text-neutral-dark/50 cursor-pointer"
+                style={{ transition: "transform 500ms cubic-bezier(0.25, 0.1, 0.25, 1)" }}
+                onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.15)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
+              >
+                <ChevronLeft size={20} />
+              </button>
+              </ClickSpark>
+              <span className="text-sm font-semibold text-neutral-dark px-2">
+                {MONTHS[viewMonth.month]} {viewMonth.year}
+              </span>
+              <ClickSpark sparkColor="#7FAF8F" sparkSize={8} sparkRadius={14} className="inline-flex">
+              <button
+                onClick={nextMonth}
+                className="p-2 rounded-lg hover:bg-white text-neutral-dark/50 cursor-pointer"
+                style={{ transition: "transform 500ms cubic-bezier(0.25, 0.1, 0.25, 1)" }}
+                onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.15)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
+              >
+                <ChevronRight size={20} />
+              </button>
+              </ClickSpark>
+            </div>
+            {categories.length > 0 && (
+              <CategoryFilter
+                categories={categories}
+                value={categoryFilter}
+                onChange={setCategoryFilter}
+              />
+            )}
           </div>
 
           <div className="space-y-4">
@@ -376,15 +537,27 @@ export default function RemindersPage() {
                       strategy={verticalListSortingStrategy}
                     >
                       <div className="space-y-2">
-                        {rems.map((r) => (
-                          <DraggableReminder
-                            key={r.id}
-                            id={r.id}
-                            text={r.text}
-                            completed={r.completed}
-                            onToggle={toggleReminder}
-                          />
-                        ))}
+                        <AnimatePresence mode="popLayout">
+                          {rems.map((r) => (
+                            <motion.div
+                              key={r.id}
+                              layout
+                              initial={{ opacity: 0, y: 8 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, height: 0, marginBottom: 0, overflow: "hidden" }}
+                              transition={{ duration: 0.25, ease: "easeOut" }}
+                            >
+                              <DraggableReminder
+                                id={r.id}
+                                text={r.text}
+                                completed={r.completed}
+                                onToggle={toggleReminder}
+                                onDelete={(id) => removeReminder(id, "dated")}
+                                categoryColor={r.categoryId ? categoryMap[r.categoryId]?.color : undefined}
+                              />
+                            </motion.div>
+                          ))}
+                        </AnimatePresence>
                         {rems.length === 0 && (
                           <p className="text-xs text-neutral-dark/40 py-2">
                             Drop reminders here
@@ -398,12 +571,8 @@ export default function RemindersPage() {
             })}
           </div>
         </DndContext>
+        </FadeIn>
       )}
-
-      <AccountRequiredModal
-        open={showAccountModal}
-        onClose={() => setShowAccountModal(false)}
-      />
     </div>
   );
 }

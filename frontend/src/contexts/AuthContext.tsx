@@ -13,6 +13,7 @@ import {
   db,
   googleProvider,
   signInWithPopup,
+  signInAnonymously as firebaseSignInAnonymously,
   signOut as firebaseSignOut,
   onAuthStateChanged,
   doc,
@@ -25,9 +26,10 @@ interface UserProfile {
   uid: string;
   email: string | null;
   displayName: string | null;
-  authProvider: "email" | "google";
+  authProvider: "email" | "google" | "anonymous";
   onboardingComplete: boolean;
   aiEnabled: boolean;
+  humanize: boolean;
   streakThreshold: number;
 }
 
@@ -35,12 +37,11 @@ interface AuthState {
   user: User | null;
   profile: UserProfile | null;
   loading: boolean;
-  isDemoMode: boolean;
   signInWithGoogle: () => Promise<void>;
+  signInAnonymously: () => Promise<void>;
   logout: () => Promise<void>;
   completeOnboarding: () => Promise<void>;
-  enterDemoMode: () => void;
-  exitDemoMode: () => void;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -49,41 +50,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isDemoMode, setIsDemoMode] = useState(false);
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      setIsDemoMode(sessionStorage.getItem("haptimize_demo") === "true");
-    }
-  }, []);
 
   const loadProfile = useCallback(async (u: User) => {
     try {
       const ref = doc(db, "users", u.uid);
       const snap = await getDoc(ref);
       if (snap.exists()) {
-        setProfile(snap.data() as UserProfile);
+        const data = snap.data() as Record<string, unknown>;
+        setProfile({
+          ...data,
+          uid: u.uid,
+          streakThreshold: (data.streakThreshold as number) ?? 80,
+          humanize: (data.humanize as boolean) ?? false,
+        } as UserProfile);
       } else {
+        const authProvider: UserProfile["authProvider"] = u.isAnonymous
+          ? "anonymous"
+          : u.providerData[0]?.providerId === "google.com"
+            ? "google"
+            : "email";
         const newProfile: UserProfile = {
           uid: u.uid,
-          email: u.email,
-          displayName: u.displayName,
-          authProvider: u.providerData[0]?.providerId === "google.com" ? "google" : "email",
+          email: u.email ?? null,
+          displayName: u.displayName ?? (u.isAnonymous ? "Demo User" : null),
+          authProvider,
           onboardingComplete: false,
           aiEnabled: true,
+          humanize: false,
           streakThreshold: 80,
         };
         await setDoc(ref, newProfile);
         setProfile(newProfile);
       }
     } catch {
+      const authProvider: UserProfile["authProvider"] = u.isAnonymous
+        ? "anonymous"
+        : u.providerData[0]?.providerId === "google.com"
+          ? "google"
+          : "email";
       setProfile({
         uid: u.uid,
-        email: u.email,
-        displayName: u.displayName,
-        authProvider: "email",
+        email: u.email ?? null,
+        displayName: u.displayName ?? (u.isAnonymous ? "Demo User" : null),
+        authProvider,
         onboardingComplete: false,
         aiEnabled: true,
+        humanize: false,
         streakThreshold: 80,
       });
     }
@@ -93,10 +105,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
       setUser(u);
       if (u) {
-        if (isDemoMode) {
-          setIsDemoMode(false);
-          sessionStorage.removeItem("haptimize_demo");
-        }
         await loadProfile(u);
       } else {
         setProfile(null);
@@ -104,10 +112,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
     return unsubscribe;
-  }, [loadProfile, isDemoMode]);
+  }, [loadProfile]);
 
   const signInWithGoogle = useCallback(async () => {
     await signInWithPopup(auth, googleProvider);
+  }, []);
+
+  const signInAnonymously = useCallback(async () => {
+    await firebaseSignInAnonymously(auth);
   }, []);
 
   const logout = useCallback(async () => {
@@ -127,33 +139,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [user]);
 
-  const enterDemoMode = useCallback(() => {
-    setIsDemoMode(true);
-    if (typeof window !== "undefined") {
-      sessionStorage.setItem("haptimize_demo", "true");
-    }
-  }, []);
-
-  const exitDemoMode = useCallback(() => {
-    setIsDemoMode(false);
-    if (typeof window !== "undefined") {
-      sessionStorage.removeItem("haptimize_demo");
-    }
-  }, []);
+  const refreshProfile = useCallback(async () => {
+    if (user) await loadProfile(user);
+  }, [user, loadProfile]);
 
   return (
     <AuthContext.Provider
-      value={{
-        user,
-        profile,
-        loading,
-        isDemoMode,
-        signInWithGoogle,
-        logout,
-        completeOnboarding,
-        enterDemoMode,
-        exitDemoMode,
-      }}
+      value={{ user, profile, loading, signInWithGoogle, signInAnonymously, logout, completeOnboarding, refreshProfile }}
     >
       {children}
     </AuthContext.Provider>

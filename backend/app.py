@@ -32,8 +32,25 @@ def create_app() -> Flask:
     _init_firebase()
 
     app = Flask(__name__)
-    CORS(app, resources={r"/api/*": {"origins": "*"}})
+
+    allowed_origins = os.getenv(
+        "CORS_ORIGINS", "http://localhost:3000"
+    ).split(",")
+    CORS(
+        app,
+        resources={r"/api/*": {"origins": allowed_origins}},
+        supports_credentials=True,
+    )
     app.config["JSON_SORT_KEYS"] = False
+
+    @app.after_request
+    def security_headers(response):
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Cache-Control"] = "no-store"
+        return response
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(reminders_bp)
