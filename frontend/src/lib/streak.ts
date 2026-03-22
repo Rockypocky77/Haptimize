@@ -1,7 +1,7 @@
 import {
   db,
   doc,
-  getDoc,
+  getDocFromServer,
   setDoc,
   collection,
   query,
@@ -34,16 +34,15 @@ export async function updateStreak(
   }
 
   let count = 0;
-  let startedCounting = false;
   const date = new Date();
 
   for (let i = 0; i < 60; i++) {
     const dateStr = getLocalDateString(date);
-    const snap = await getDoc(doc(db, "habitLogs", uid, "daily", dateStr));
+    const snap = await getDocFromServer(doc(db, "habitLogs", uid, "daily", dateStr));
 
     let pct: number;
     if (!snap.exists()) {
-      pct = -1;
+      pct = 0; // No data = 0% done (app not opened that day)
     } else {
       const data = snap.data();
       pct = data?.completionPct;
@@ -56,13 +55,11 @@ export async function updateStreak(
       }
     }
 
-    const meetsGoal = pct >= 0 && pct >= streakThreshold;
+    const meetsGoal = pct >= streakThreshold;
     if (!meetsGoal) {
-      if (startedCounting) break;
-      date.setDate(date.getDate() - 1);
-      continue;
+      // Streak = consecutive days including today; if today doesn't meet, streak breaks
+      break;
     }
-    startedCounting = true;
     count++;
     date.setDate(date.getDate() - 1);
   }

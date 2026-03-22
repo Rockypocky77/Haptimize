@@ -56,7 +56,7 @@ export default function Sidebar({
 
   return (
     <aside
-      className="fixed left-0 top-0 h-screen bg-white border-r border-primary-light/30 flex flex-col z-40 overflow-hidden"
+      className="fixed left-0 top-0 h-screen bg-surface border-r border-primary-light/30 flex flex-col z-40 overflow-hidden"
       style={{
         width: isExpanded ? 220 : 64,
         transition: "width 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
@@ -161,9 +161,19 @@ export default function Sidebar({
               overflow: "hidden",
             }}
           >
-            <p className="text-sm font-medium text-neutral-dark truncate">
-              {profile?.displayName ?? "User"}
-            </p>
+            <div className="flex items-center gap-2 min-w-0">
+              <p className="text-sm font-medium text-neutral-dark truncate">
+                {profile?.displayName ?? "User"}
+              </p>
+              <span
+                className={`
+                  text-xs px-2 py-0.5 rounded-full flex-shrink-0
+                  ${profile?.plan === "pro" ? "bg-accent/20 text-accent" : profile?.plan === "max" ? "bg-primary-light/20 text-primary-light" : "bg-primary/20 text-primary"}
+                `}
+              >
+                {profile?.plan === "pro" ? "Pro" : profile?.plan === "max" ? "Max" : "Free"}
+              </span>
+            </div>
             <p className="text-xs text-neutral-dark/50 truncate">
               {profile?.email}
             </p>

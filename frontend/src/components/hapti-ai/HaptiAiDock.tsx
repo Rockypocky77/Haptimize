@@ -2,11 +2,12 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Sparkles, X, Send, CheckCircle2, Undo2, ExternalLink } from "lucide-react";
+import { Sparkles, X, Send, Undo2, ExternalLink } from "lucide-react";
 import ClickSpark from "@/components/ui/ClickSpark";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDemoGuard } from "@/components/ui/DemoGate";
 import { api } from "@/lib/api/client";
+import PlansModal from "@/components/plans/PlansModal";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   db,
@@ -222,7 +223,7 @@ async function performUndo(entries: UndoEntry[]): Promise<boolean> {
 
 const msgVariants = {
   hidden: { opacity: 0, y: 12, scale: 0.96 },
-  visible: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.3, ease: [0.25, 0.1, 0.25, 1] } },
+  visible: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.3, ease: [0.25, 0.1, 0.25, 1] as const } },
   exit: { opacity: 0, y: -8, transition: { duration: 0.2 } },
 };
 
@@ -243,6 +244,8 @@ export default function HaptiAiDock() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [undoMsgId, setUndoMsgId] = useState<string | null>(null);
+  const [showPlansModal, setShowPlansModal] = useState(false);
+  const [tokenLimitReached, setTokenLimitReached] = useState(false);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -306,18 +309,67 @@ export default function HaptiAiDock() {
         let contextPrefix = "";
         if (profile?.uid) {
           try {
-            const items: string[] = [];
+            const contextParts: string[] = [];
+
+            const reminderItems: string[] = [];
             for (const col of ["dated", "casual"]) {
               const snap = await getDocs(collection(db, "reminders", profile.uid, col));
               snap.docs.forEach((d) => {
                 const data = d.data();
                 if (!data.completed) {
-                  items.push(`- "${data.text}"${data.date ? ` (${data.date})` : " (no date)"}`);
+                  reminderItems.push(`- "${data.text}"${data.date ? ` (${data.date})` : " (no date)"}`);
                 }
               });
             }
-            if (items.length > 0) {
-              contextPrefix = `[User's current reminders:\n${items.join("\n")}]\n\n`;
+            if (reminderItems.length > 0) {
+              contextParts.push(`[User's current reminders:\n${reminderItems.join("\n")}]`);
+            }
+
+            const habitsSnap = await getDocs(collection(db, "habits", profile.uid, "items"));
+            const habitNames: { id: string; title: string }[] = [];
+            habitsSnap.docs.forEach((d) => {
+              const data = d.data();
+              if (data.active !== false) {
+                habitNames.push({ id: d.id, title: data.title ?? "Untitled" });
+              }
+            });
+
+            const logsSnap = await getDocs(collection(db, "habitLogs", profile.uid, "daily"));
+            const rawLogs = logsSnap.docs.map((d) => ({
+              date: d.id,
+              completedHabitIds: (d.data().completedHabitIds ?? []) as string[],
+              completionPct: (d.data().completionPct ?? 0) as number,
+            }));
+
+            if (habitNames.length > 0 && rawLogs.length > 0) {
+              const { filterLogsForAnalytics, computeAllHabitRates, computeProductiveDays, computeImprovingDecliningHabits, computeMomentumScore } = await import("@/lib/analytics");
+              const logs = filterLogsForAnalytics(rawLogs);
+              const allRates = computeAllHabitRates(habitNames, logs);
+              const { best, worst } = computeProductiveDays(logs);
+              const { improving, declining } = computeImprovingDecliningHabits(habitNames, logs);
+              const momentum = computeMomentumScore(logs);
+
+              const analyticsLines: string[] = [];
+              analyticsLines.push(`Momentum Score: ${momentum}/100`);
+              analyticsLines.push(`Tracking ${habitNames.length} habits over ${logs.length} days`);
+              if (allRates.length > 0) {
+                const top3 = allRates.slice(0, 3).map((h) => `"${h.title}" ${Math.round(h.rate)}%`).join(", ");
+                const bottom3 = allRates.slice(-3).reverse().map((h) => `"${h.title}" ${Math.round(h.rate)}%`).join(", ");
+                analyticsLines.push(`Strongest: ${top3}`);
+                analyticsLines.push(`Weakest: ${bottom3}`);
+              }
+              if (best) analyticsLines.push(`Best day: ${best.weekday} (avg ${best.avgPct}%)`);
+              if (worst) analyticsLines.push(`Toughest day: ${worst.weekday} (avg ${worst.avgPct}%)`);
+              if (improving.length > 0) analyticsLines.push(`Improving: ${improving.map((h) => `"${h.title}" +${h.delta}%`).join(", ")}`);
+              if (declining.length > 0) analyticsLines.push(`Declining: ${declining.map((h) => `"${h.title}" ${h.delta}%`).join(", ")}`);
+
+              contextParts.push(`[User's habit analytics:\n${analyticsLines.join("\n")}]`);
+            } else if (habitNames.length > 0) {
+              contextParts.push(`[User's habits: ${habitNames.map((h) => `"${h.title}"`).join(", ")}]`);
+            }
+
+            if (contextParts.length > 0) {
+              contextPrefix = contextParts.join("\n\n") + "\n\n";
             }
           } catch { /* ignore */ }
         }
@@ -327,6 +379,11 @@ export default function HaptiAiDock() {
         const data = res as Record<string, unknown>;
         if (data.ok === false) {
           const errMsg = (data.error as string) ?? "Something went wrong.";
+          const isLimitError = typeof errMsg === "string" && errMsg.includes("daily AI limit");
+          if (isLimitError) {
+            setTokenLimitReached(true);
+            return;
+          }
           setMessages((prev) => [
             ...prev,
             { id: `ai_err_${Date.now()}`, role: "ai", text: errMsg },
@@ -378,7 +435,7 @@ export default function HaptiAiDock() {
         setSending(false);
       }
     },
-    [input, sending, profile?.uid, messages, guardAction]
+    [input, sending, profile?.uid, profile?.humanize, messages, guardAction]
   );
 
   const handleNavigate = useCallback(
@@ -417,7 +474,7 @@ export default function HaptiAiDock() {
       <AnimatePresence>
         {open && (
           <motion.div
-            className="fixed bottom-6 right-6 w-96 h-[500px] bg-white rounded-2xl shadow-2xl border border-primary-light/30 flex flex-col z-50 overflow-hidden"
+            className="fixed bottom-6 right-6 w-96 h-[500px] bg-surface rounded-2xl shadow-2xl border border-primary-light/30 flex flex-col z-50 overflow-hidden"
             initial={{ opacity: 0, y: 40, scale: 0.92 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 40, scale: 0.92 }}
@@ -496,7 +553,7 @@ export default function HaptiAiDock() {
                         >
                           <button
                             onClick={() => handleUndo(msg.id)}
-                            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-white/80 text-neutral-dark/70 hover:bg-white hover:text-red-500 border border-neutral-dark/10 cursor-pointer transition-all"
+                            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-surface/80 text-neutral-dark/70 hover:bg-surface hover:text-red-500 border border-neutral-dark/10 cursor-pointer transition-all"
                           >
                             <Undo2 size={12} />
                             Undo (5s)
@@ -547,20 +604,48 @@ export default function HaptiAiDock() {
               </AnimatePresence>
             </div>
 
+            {/* Token limit banner */}
+            <AnimatePresence>
+              {tokenLimitReached && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
+                  className="overflow-hidden border-t border-primary-light/20"
+                >
+                  <div className="px-4 py-3 flex items-center justify-between gap-3 bg-accent/10">
+                    <p className="text-sm text-neutral-dark/80 flex-1">
+                      You&apos;ve run out of daily AI tokens. Upgrade for more.
+                    </p>
+                    <ClickSpark sparkColor="#7FAF8F" sparkSize={8} sparkRadius={14} className="inline-flex">
+                      <button
+                        onClick={() => setShowPlansModal(true)}
+                        className="px-3 py-1.5 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary/90 transition-colors whitespace-nowrap"
+                      >
+                        Upgrade
+                      </button>
+                    </ClickSpark>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             {/* Input */}
             <form onSubmit={sendMessage} className="px-4 py-3 border-t border-primary-light/20">
               <div className="flex gap-2">
                 <input
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder="Ask me anything..."
-                  className="flex-1 px-4 py-2.5 rounded-xl bg-neutral-light text-sm text-neutral-dark placeholder:text-neutral-dark/30 border-none focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
+                  placeholder={tokenLimitReached ? "Upgrade to continue chatting" : "Ask me anything..."}
+                  disabled={tokenLimitReached}
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-neutral-light text-sm text-neutral-dark placeholder:text-neutral-dark/30 border-none focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow disabled:opacity-60 disabled:cursor-not-allowed"
                 />
                 <ClickSpark sparkColor="#fff" sparkSize={10} sparkRadius={18} className="inline-flex">
                   <motion.button
                     type="submit"
-                    disabled={!input.trim() || sending}
-                    className="p-2.5 rounded-xl bg-primary text-white disabled:opacity-40 hover:bg-primary/90 cursor-pointer"
+                    disabled={!input.trim() || sending || tokenLimitReached}
+                    className="p-2.5 rounded-xl bg-primary text-white disabled:opacity-40 hover:bg-primary/90 cursor-pointer disabled:cursor-not-allowed"
                     whileTap={{ scale: 0.92 }}
                     transition={{ duration: 0.1 }}
                   >
@@ -572,6 +657,12 @@ export default function HaptiAiDock() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <PlansModal
+        open={showPlansModal}
+        onClose={() => setShowPlansModal(false)}
+        currentPlan={profile?.plan ?? "free"}
+      />
     </>
   );
 }

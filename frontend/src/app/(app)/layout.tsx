@@ -7,6 +7,7 @@ import { useTransition } from "@/contexts/TransitionContext";
 import Sidebar from "@/components/nav/Sidebar";
 import HaptiAiDock from "@/components/hapti-ai/HaptiAiDock";
 import DemoGate from "@/components/ui/DemoGate";
+import TermsReconsentModal from "@/components/legal/TermsReconsentModal";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, profile, loading } = useAuth();
@@ -49,6 +50,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <DemoGate>
+      <TermsReconsentModal />
       <div className="min-h-screen bg-neutral-light">
         <Sidebar
           isExpanded={sidebarExpanded}

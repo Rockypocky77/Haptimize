@@ -9,10 +9,13 @@ import CountUp from "@/components/ui/CountUp";
 export default function GraphAnimation() {
   const [showSubtext, setShowSubtext] = useState(false);
 
-  const points = Array.from({ length: 40 }, (_, i) => {
-    const x = (i / 39) * 500;
-    const y = 200 - Math.pow(1.01, i * 9.1) * 1.5;
-    return `${x},${Math.max(y, 10)}`;
+  // True 1% daily compound growth over 365 days: (1.01)^t → 37.8x
+  const points = Array.from({ length: 50 }, (_, i) => {
+    const t = (i / 49) * 365;
+    const value = Math.pow(1.01, t);
+    const x = (i / 49) * 500;
+    const y = 200 - ((value - 1) / 36.8) * 185;
+    return `${x},${Math.max(Math.min(y, 200), 12)}`;
   });
   const pathD = `M ${points.join(" L ")}`;
   const areaD = `${pathD} L 500,200 L 0,200 Z`;
@@ -63,21 +66,26 @@ export default function GraphAnimation() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 1, duration: 0.8, ease: [0.25, 0.1, 0.25, 1] }}
       >
-        <div className="relative rounded-2xl bg-white/60 border border-gray-200/40 p-4 overflow-hidden">
+        <div className="relative rounded-2xl bg-white/80 border border-gray-200/50 p-5 overflow-hidden shadow-sm">
           <motion.div
-            className="absolute inset-0 rounded-2xl"
+            className="absolute inset-0 rounded-2xl pointer-events-none"
             initial={{ opacity: 0 }}
-            animate={{ opacity: [0, 0.4, 0] }}
-            transition={{ delay: 2, duration: 2, ease: "easeInOut" }}
+            animate={{ opacity: [0, 0.5, 0] }}
+            transition={{ delay: 2, duration: 2.5, ease: "easeInOut" }}
             style={{
-              background: "radial-gradient(circle at 80% 20%, rgba(127,175,143,0.3), transparent 60%)",
+              background: "radial-gradient(ellipse 80% 50% at 70% 30%, rgba(127,175,143,0.25), transparent 70%)",
             }}
           />
           <svg viewBox="0 0 500 220" className="w-full h-auto">
             <defs>
               <linearGradient id="curveGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#5a9a6e" stopOpacity="0.35" />
+                <stop offset="0%" stopColor="#4a8a5e" stopOpacity="0.4" />
+                <stop offset="50%" stopColor="#5a9a6e" stopOpacity="0.15" />
                 <stop offset="100%" stopColor="#5a9a6e" stopOpacity="0.02" />
+              </linearGradient>
+              <linearGradient id="curveStroke" x1="0" y1="1" x2="1" y2="0">
+                <stop offset="0%" stopColor="#3d7a52" />
+                <stop offset="100%" stopColor="#5a9a6e" />
               </linearGradient>
             </defs>
             <motion.path
@@ -85,20 +93,21 @@ export default function GraphAnimation() {
               fill="url(#curveGrad)"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ delay: 1.3, duration: 1 }}
+              transition={{ delay: 1.3, duration: 1.2 }}
             />
             <motion.path
               d={pathD}
               fill="none"
-              stroke="#5a9a6e"
-              strokeWidth="3"
+              stroke="url(#curveStroke)"
+              strokeWidth="3.5"
               strokeLinecap="round"
+              strokeLinejoin="round"
               initial={{ pathLength: 0 }}
               animate={{ pathLength: 1 }}
-              transition={{ delay: 1.3, duration: 2.5, ease: [0.25, 0.1, 0.25, 1] }}
+              transition={{ delay: 1.3, duration: 2.8, ease: [0.22, 0.61, 0.36, 1] }}
               onAnimationComplete={() => setShowSubtext(true)}
             />
-            <line x1="0" y1="200" x2="500" y2="200" stroke="#2E3A3F" strokeOpacity="0.1" strokeWidth="1" />
+            <line x1="0" y1="200" x2="500" y2="200" stroke="currentColor" strokeOpacity="0.08" strokeWidth="1" className="text-neutral-dark" />
           </svg>
         </div>
       </motion.div>

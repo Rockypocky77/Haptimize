@@ -19,7 +19,7 @@ export default function DroppableDateBox({
   return (
     <div
       ref={setNodeRef}
-      className={`rounded-2xl border-2 border-dashed min-h-[80px] bg-white shadow-sm ${
+      className={`rounded-2xl border-2 border-dashed min-h-[80px] bg-surface shadow-sm ${
         isOver ? "border-primary bg-primary/5" : "border-primary-light/30"
       }`}
       style={{

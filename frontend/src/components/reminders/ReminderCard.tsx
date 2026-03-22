@@ -1,6 +1,7 @@
 "use client";
 
 import { Check, Undo2, GripVertical, Trash2 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import ClickSpark from "@/components/ui/ClickSpark";
 
 interface ReminderCardProps {
@@ -27,12 +28,12 @@ export default function ReminderCard({
   return (
     <div
       className={`
-        flex items-center gap-3 px-4 py-3 rounded-xl bg-white
+        flex items-center gap-3 px-4 py-3 rounded-xl bg-surface
         border group
         ${completed ? "border-primary/20 bg-primary/5" : "border-primary-light/30"}
       `}
       style={{
-        transition: "transform 500ms cubic-bezier(0.25, 0.1, 0.25, 1), background-color 150ms ease, border-color 150ms ease",
+        transition: "transform 500ms cubic-bezier(0.25, 0.1, 0.25, 1), background-color 300ms ease, border-color 300ms ease",
         ...(categoryColor
           ? { borderLeftWidth: 4, borderLeftColor: categoryColor }
           : {}),
@@ -56,6 +57,7 @@ export default function ReminderCard({
         onClick={() => onToggle(id)}
         className={`
           w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 cursor-pointer
+          transition-all duration-200
           ${
             completed
               ? "bg-primary border-primary text-white"
@@ -63,12 +65,24 @@ export default function ReminderCard({
           }
         `}
       >
-        {completed && <Check size={12} strokeWidth={3} />}
+        <AnimatePresence mode="wait">
+          {completed && (
+            <motion.span
+              key="check"
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 500, damping: 25 }}
+            >
+              <Check size={12} strokeWidth={3} />
+            </motion.span>
+          )}
+        </AnimatePresence>
       </button>
       </ClickSpark>
 
       <span
-        className={`flex-1 min-w-0 text-sm ${
+        className={`flex-1 min-w-0 text-sm transition-all duration-300 ${
           completed
             ? "text-neutral-dark/40 line-through"
             : "text-neutral-dark/80"
@@ -77,17 +91,26 @@ export default function ReminderCard({
         {text}
       </span>
 
-      {completed && (
-        <ClickSpark sparkColor="#7FAF8F" sparkSize={8} sparkRadius={14} className="!w-auto !h-auto flex-shrink-0">
-        <button
-          onClick={() => onToggle(id)}
-          className="p-1 rounded text-neutral-dark/30 hover:text-primary cursor-pointer"
-          title="Undo"
-        >
-          <Undo2 size={14} />
-        </button>
-        </ClickSpark>
-      )}
+      <AnimatePresence>
+        {completed && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            transition={{ duration: 0.2 }}
+          >
+            <ClickSpark sparkColor="#7FAF8F" sparkSize={8} sparkRadius={14} className="!w-auto !h-auto flex-shrink-0">
+            <button
+              onClick={() => onToggle(id)}
+              className="p-1 rounded text-neutral-dark/30 hover:text-primary cursor-pointer"
+              title="Undo"
+            >
+              <Undo2 size={14} />
+            </button>
+            </ClickSpark>
+          </motion.div>
+        )}
+      </AnimatePresence>
       {onDelete && (
         <ClickSpark sparkColor="#7FAF8F" sparkSize={8} sparkRadius={14} className="!w-auto !h-auto flex-shrink-0">
         <button

@@ -49,7 +49,7 @@ export default function AnimatedTextCycle({
       filter: "blur(0px)",
       transition: {
         duration: 0.4,
-        ease: "easeOut",
+        ease: [0, 0, 0.2, 1] as const,
       },
     },
     exit: {
@@ -58,7 +58,7 @@ export default function AnimatedTextCycle({
       filter: "blur(8px)",
       transition: {
         duration: 0.3,
-        ease: "easeIn",
+        ease: [0.42, 0, 1, 1] as const,
       },
     },
   };

@@ -18,9 +18,29 @@ async function request<T = unknown>(
     ...(options.headers as Record<string, string>),
   };
 
-  const res = await fetch(url, { ...options, headers });
-  const json = await res.json();
-  return json as ApiResponse<T>;
+  try {
+    const res = await fetch(url, { ...options, headers });
+    const json = await res.json();
+    return json as ApiResponse<T>;
+  } catch (err) {
+    // #region agent log
+    if (typeof fetch === "function") {
+      fetch("http://127.0.0.1:7587/ingest/2c649473-d553-40ac-a354-2089a54d94ff", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "24f9f6" },
+        body: JSON.stringify({
+          sessionId: "24f9f6",
+          location: "api:request:catch",
+          message: "API request failed",
+          data: { path, error: String(err) },
+          hypothesisId: "H3",
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {});
+    }
+    // #endregion
+    return { ok: false, error: String(err) } as ApiResponse<T>;
+  }
 }
 
 export const api = {

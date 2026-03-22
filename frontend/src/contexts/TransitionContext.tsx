@@ -83,7 +83,7 @@ export function TransitionProvider({ children }: { children: React.ReactNode }) 
       }, FADE_IN_MS);
       timersRef.current.push(t);
     },
-    [router, notify, clearTimers, setOverlay]
+    [router, notify, clearTimers]
   );
 
   const endTransition = useCallback(() => {
@@ -127,7 +127,9 @@ export function useTransition() {
   if (!ctx) {
     return {
       isTransitioning: false,
-      startTransition: (_path: string) => {},
+      startTransition: (path: string) => {
+        void path;
+      },
       endTransition: () => {},
     };
   }

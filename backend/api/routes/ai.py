@@ -3,6 +3,7 @@ from __future__ import annotations
 from flask import Blueprint, jsonify, request
 from pydantic import BaseModel, ValidationError, field_validator
 
+from services.ai_usage import add_usage, get_today_usage, get_user_plan
 from services.content_safety import (
     check_prompt_injection,
     moderate_with_openai,
@@ -10,6 +11,7 @@ from services.content_safety import (
     sanitize_text,
 )
 from services.openai_service import OpenAIService
+from services.plan_limits import get_ai_tokens_limit
 from services.rate_limit import ai_rate_limiter
 
 ai_bp = Blueprint("ai", __name__, url_prefix="/api/ai")
@@ -71,6 +73,25 @@ def chat():
     if rate_error:
         return jsonify(rate_error), 429
 
+    uid = _get_uid()
+    if uid and uid != "anon":
+        plan = get_user_plan(uid)
+        limit = get_ai_tokens_limit(plan)
+        used = get_today_usage(uid)
+        if used >= limit:
+            return (
+                jsonify(
+                    {
+                        "ok": False,
+                        "error": (
+                            f"You've reached your daily AI limit ({limit:,} tokens). "
+                            "Upgrade to Pro for 30k/day or Max for 100k/day."
+                        ),
+                    }
+                ),
+                429,
+            )
+
     try:
         payload = ChatRequest.model_validate(request.get_json(force=True) or {})
     except ValidationError as exc:
@@ -86,6 +107,9 @@ def chat():
     result = openai_service.chat(payload.message, history=history, humanize=payload.humanize)
     if not result.ok:
         return jsonify({"ok": False, "error": result.error or "AI service failure"}), 502
+
+    if uid and uid != "anon" and result.usage_total_tokens > 0:
+        add_usage(uid, result.usage_total_tokens)
 
     reply = sanitize_text(result.message) if result.message else result.message
     actions = sanitize_actions(result.actions)

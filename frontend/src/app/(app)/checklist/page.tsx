@@ -15,12 +15,10 @@ import {
   doc,
   getDoc,
   setDoc,
-  updateDoc,
   getDocs,
   deleteDoc,
   query,
   where,
-  orderBy,
   serverTimestamp,
 } from "@/lib/firebase/client";
 import { motion, AnimatePresence } from "framer-motion";
@@ -28,7 +26,8 @@ import { Plus, Lightbulb } from "lucide-react";
 import { useDemoGuard } from "@/components/ui/DemoGate";
 import { useDateChange } from "@/hooks/useDateChange";
 import { getLocalDateString } from "@/lib/date";
-import { updateStreak } from "@/lib/streak";
+import { canAddHabit, getHabitsLimit } from "@/lib/plan-limits";
+import PlansModal from "@/components/plans/PlansModal";
 
 const RECOMMENDED_HABITS = [
   "Drink 8 cups of water",
@@ -71,13 +70,15 @@ const DEMO_CHART: DayData[] = Array.from({ length: 14 }, (_, i) => {
 });
 
 export default function ChecklistPage() {
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const { isDemo, guardAction } = useDemoGuard();
   const [habits, setHabits] = useState<Habit[]>([]);
   const [completedIds, setCompletedIds] = useState<string[]>([]);
   const [newHabit, setNewHabit] = useState("");
   const [chartData, setChartData] = useState<DayData[]>([]);
   const [showRecommended, setShowRecommended] = useState(false);
+  const [totalHabitsCount, setTotalHabitsCount] = useState(0);
+  const [showPlansModal, setShowPlansModal] = useState(false);
   const today = getLocalDateString();
 
   const loadData = useCallback(async () => {
@@ -94,61 +95,56 @@ export default function ChecklistPage() {
 
     try {
       const habitsCol = collection(db, "habits", profile.uid, "items");
-      const snap = await getDocs(query(habitsCol, where("active", "==", true)));
-      setHabits(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Habit)));
+      const [activeSnap, allSnap] = await Promise.all([
+        getDocs(query(habitsCol, where("active", "==", true))),
+        getDocs(habitsCol),
+      ]);
+      setHabits(activeSnap.docs.map((d) => ({ id: d.id, ...d.data() } as Habit)));
+      setTotalHabitsCount(allSnap.docs.length);
 
       const logRef = doc(db, "habitLogs", profile.uid, "daily", today);
       const logSnap = await getDoc(logRef);
       setCompletedIds(logSnap.exists() ? (logSnap.data().completedHabitIds ?? []) : []);
 
-      const allDays: { date: string; dateFull: string; pct: number; hasLog: boolean }[] = [];
-      for (let i = 13; i >= 0; i--) {
-        const d = new Date();
-        d.setDate(d.getDate() - i);
-        const dateStr = getLocalDateString(d);
-        const dayRef = doc(db, "habitLogs", profile.uid, "daily", dateStr);
-        const daySnap = await getDoc(dayRef);
-        const hasLog = daySnap.exists();
-        const pct = hasLog ? (daySnap.data().completionPct ?? 0) : 0;
-        allDays.push({ date: dateStr.slice(5), dateFull: dateStr, pct, hasLog });
-      }
-      const daysWithLogs = allDays.filter((d) => d.hasLog).length;
-      const dataByDate = new Map(allDays.map((d) => [d.dateFull, d.pct]));
+      // All-time chart: from day before first activity to today (shifts if they didn't start on day 1)
+      const logsSnap = await getDocs(collection(db, "habitLogs", profile.uid, "daily"));
+      const logByDate = new Map<string, number>();
+      logsSnap.docs.forEach((d) => {
+        const pct = d.data().completionPct ?? 0;
+        logByDate.set(d.id, pct);
+      });
 
-      let days: DayData[];
-
-      if (daysWithLogs === 0) {
-        days = [];
-        for (let i = 9; i >= 0; i--) {
-          const d = new Date();
-          d.setDate(d.getDate() - i);
-          days.push({ date: getLocalDateString(d).slice(5), pct: 0 });
-        }
-      } else if (daysWithLogs < 10) {
-        const firstLogEntry = allDays.find((d) => d.hasLog)!;
-        const [y, m, day] = firstLogEntry.dateFull.split("-").map(Number);
-        const firstLogDate = new Date(y, m - 1, day);
-        const windowStart = new Date(firstLogDate);
-        windowStart.setDate(windowStart.getDate() - 1);
-
-        days = [];
-        for (let i = 0; i < 10; i++) {
-          const d = new Date(windowStart);
-          d.setDate(d.getDate() + i);
-          if (getLocalDateString(d) > today) break;
-          const dateStr = getLocalDateString(d);
-          const pct = dataByDate.get(dateStr) ?? 0;
-          days.push({ date: dateStr.slice(5), pct });
-        }
+      const firstActivityDate = [...logByDate.entries()]
+        .filter(([, pct]) => pct > 0)
+        .map(([date]) => date)
+        .sort()[0];
+      let chartStartStr: string;
+      if (firstActivityDate) {
+        const dayBefore = new Date(firstActivityDate);
+        dayBefore.setDate(dayBefore.getDate() - 1);
+        chartStartStr = getLocalDateString(dayBefore);
+      } else if (user?.metadata?.creationTime) {
+        const signupDate = new Date(user.metadata.creationTime);
+        const dayBefore = new Date(signupDate);
+        dayBefore.setDate(dayBefore.getDate() - 1);
+        chartStartStr = getLocalDateString(dayBefore);
       } else {
-        const viewDays = Math.min(14, daysWithLogs);
-        days = allDays.slice(-viewDays).map(({ date, pct }) => ({ date, pct }));
+        chartStartStr = today;
+      }
+
+      const days: DayData[] = [];
+      const cur = new Date(chartStartStr);
+      while (getLocalDateString(cur) <= today) {
+        const dateStr = getLocalDateString(cur);
+        const pct = logByDate.get(dateStr) ?? 0;
+        days.push({ date: dateStr, pct });
+        cur.setDate(cur.getDate() + 1);
       }
       setChartData(days);
     } catch {
       // Firebase may not be configured
     }
-  }, [profile?.uid, isDemo]);
+  }, [profile?.uid, isDemo, user?.metadata?.creationTime]);
 
   useEffect(() => {
     loadData();
@@ -166,18 +162,25 @@ export default function ChecklistPage() {
     async (title: string) => {
       if (!guardAction("creating habits")) return;
       if (!profile?.uid || !title.trim()) return;
+      const plan = profile?.plan ?? "free";
+      if (!canAddHabit(plan, totalHabitsCount)) {
+        setShowPlansModal(true);
+        return;
+      }
       const id = `habit_${Date.now()}`;
       const habit: Habit = { id, title: title.trim(), active: true };
       setHabits((prev) => [...prev, habit]);
+      setTotalHabitsCount((c) => c + 1);
       setNewHabit("");
       try {
         const ref = doc(db, "habits", profile.uid, "items", id);
         await setDoc(ref, { title: habit.title, active: true, createdAt: serverTimestamp() });
       } catch {
+        setTotalHabitsCount((c) => c - 1);
         // offline fallback — state already updated
       }
     },
-    [profile?.uid]
+    [profile?.uid, profile?.plan, totalHabitsCount, guardAction]
   );
 
   const toggleHabit = useCallback(
@@ -192,25 +195,24 @@ export default function ChecklistPage() {
       const pct = habits.length > 0 ? Math.round((next.length / habits.length) * 100) : 0;
 
       // Update chart in real time for today
-      const todayShort = today.slice(5);
       setChartData((prev) =>
-        prev.map((d) => (d.date === todayShort ? { ...d, pct } : d))
+        prev.map((d) => (d.date === today ? { ...d, pct } : d))
       );
 
       try {
         const logRef = doc(db, "habitLogs", profile.uid, "daily", today);
         await setDoc(logRef, { completedHabitIds: next, completionPct: pct }, { merge: true });
-        await updateStreak(profile.uid, profile?.streakThreshold ?? 80);
+        // Streak only updates when day ends (on next load), not on each habit toggle
       } catch {
         // offline — revert state if save failed
         setCompletedIds(completedIds);
         const oldPct = habits.length > 0 ? Math.round((completedIds.length / habits.length) * 100) : 0;
         setChartData((prev) =>
-          prev.map((d) => (d.date === todayShort ? { ...d, pct: oldPct } : d))
+          prev.map((d) => (d.date === today ? { ...d, pct: oldPct } : d))
         );
       }
     },
-    [profile?.uid, profile?.streakThreshold, completedIds, habits.length, today]
+    [profile?.uid, completedIds, habits.length, today, guardAction]
   );
 
   const deleteHabit = useCallback(
@@ -218,6 +220,7 @@ export default function ChecklistPage() {
       if (!guardAction("deleting habits")) return;
       setHabits((prev) => prev.filter((h) => h.id !== id));
       setCompletedIds((prev) => prev.filter((x) => x !== id));
+      setTotalHabitsCount((c) => Math.max(0, c - 1));
       if (!profile?.uid) return;
       try {
         await deleteDoc(doc(db, "habits", profile.uid, "items", id));
@@ -225,7 +228,7 @@ export default function ChecklistPage() {
         // offline
       }
     },
-    [profile?.uid]
+    [profile?.uid, guardAction]
   );
 
   const completionPct =
@@ -300,12 +303,26 @@ export default function ChecklistPage() {
           className="flex gap-3"
         >
           <Input
-            placeholder="Add a new habit..."
+            placeholder={
+              !canAddHabit(profile?.plan ?? "free", totalHabitsCount)
+                ? `Limit reached (${getHabitsLimit(profile?.plan ?? "free")} habits on Free)`
+                : "Add a new habit..."
+            }
             value={newHabit}
             onChange={(e) => setNewHabit(e.target.value)}
             className="flex-1"
+            disabled={!canAddHabit(profile?.plan ?? "free", totalHabitsCount)}
           />
-          <Button type="submit" disabled={!newHabit.trim()} size="md">
+          <Button
+            type={canAddHabit(profile?.plan ?? "free", totalHabitsCount) ? "submit" : "button"}
+            disabled={!newHabit.trim() && canAddHabit(profile?.plan ?? "free", totalHabitsCount)}
+            size="md"
+            onClick={
+              !canAddHabit(profile?.plan ?? "free", totalHabitsCount)
+                ? () => setShowPlansModal(true)
+                : undefined
+            }
+          >
             <Plus size={18} />
           </Button>
         </form>
@@ -327,7 +344,13 @@ export default function ChecklistPage() {
             ).map((r) => (
               <ClickSpark key={r} sparkColor="#7FAF8F" sparkSize={8} sparkRadius={14} className="inline-flex">
               <button
-                onClick={() => addHabit(r)}
+                onClick={() => {
+                  if (!canAddHabit(profile?.plan ?? "free", totalHabitsCount)) {
+                    setShowPlansModal(true);
+                  } else {
+                    addHabit(r);
+                  }
+                }}
                 className="px-3 py-1.5 text-xs bg-primary-light/20 text-neutral-dark/70 rounded-lg hover:bg-primary-light/40 cursor-pointer"
                 style={{ transition: "transform 500ms cubic-bezier(0.25, 0.1, 0.25, 1), background-color 150ms ease" }}
                 onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.06)"; }}
@@ -375,6 +398,12 @@ export default function ChecklistPage() {
         </div>
       </Card>
       </FadeIn>
+
+      <PlansModal
+        open={showPlansModal}
+        onClose={() => setShowPlansModal(false)}
+        currentPlan={profile?.plan ?? "free"}
+      />
     </div>
   );
 }

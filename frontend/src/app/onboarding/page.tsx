@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTransition } from "@/contexts/TransitionContext";
 import OnboardingStep from "@/components/onboarding/OnboardingStep";
+import TermsAndPrivacyStep from "@/components/onboarding/TermsAndPrivacyStep";
 import GraphAnimation from "@/components/onboarding/GraphAnimation";
 import AnimatedBallSlope from "@/components/onboarding/AnimatedBallSlope";
 import DashboardPreview from "@/components/onboarding/DashboardPreview";
@@ -51,7 +52,7 @@ export default function OnboardingPage() {
   const next = useCallback(() => setStep((s) => s + 1), []);
 
   const replayOnboarding = useCallback(() => {
-    setStep(0);
+    setStep(1);
     setBallDone(false);
     setDashboardDone(false);
     setAiDone(false);
@@ -69,45 +70,51 @@ export default function OnboardingPage() {
       <motion.div
         className="fixed top-0 left-0 h-1 bg-primary z-50"
         initial={{ width: "0%" }}
-        animate={{ width: `${((step + 1) / 5) * 100}%` }}
+        animate={{ width: `${((step + 1) / 6) * 100}%` }}
         transition={{ duration: 0.5, ease: [0.25, 0.1, 0.25, 1] }}
       />
 
       <AnimatePresence mode="wait">
         {step === 0 && (
           <motion.div key="step0" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.4 }}>
+            <TermsAndPrivacyStep onAgree={next} />
+          </motion.div>
+        )}
+
+        {step === 1 && (
+          <motion.div key="step1" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.4 }}>
             <OnboardingStep buttonLabel="Next →" onNext={next}>
               <GraphAnimation />
             </OnboardingStep>
           </motion.div>
         )}
 
-        {step === 1 && (
-          <motion.div key="step1" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.4 }}>
+        {step === 2 && (
+          <motion.div key="step2" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.4 }}>
             <OnboardingStep buttonLabel="Next →" onNext={next} showButton={ballDone}>
               <AnimatedBallSlope onComplete={onBallComplete} />
             </OnboardingStep>
           </motion.div>
         )}
 
-        {step === 2 && (
-          <motion.div key="step2" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.4 }}>
+        {step === 3 && (
+          <motion.div key="step3" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.4 }}>
             <OnboardingStep buttonLabel="Next →" onNext={next} showButton={dashboardDone}>
               <DashboardPreview onComplete={onDashboardComplete} />
             </OnboardingStep>
           </motion.div>
         )}
 
-        {step === 3 && (
-          <motion.div key="step3" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.4 }}>
+        {step === 4 && (
+          <motion.div key="step4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.4 }}>
             <OnboardingStep buttonLabel="Next →" onNext={next} showButton={aiDone} wide>
               <HaptiAiOnboardingStep onComplete={onAiComplete} />
             </OnboardingStep>
           </motion.div>
         )}
 
-        {step === 4 && (
-          <motion.div key="step4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.4 }}>
+        {step === 5 && (
+          <motion.div key="step5" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.4 }}>
             <OnboardingStep
               buttonLabel="Create your system →"
               onNext={handleFinish}

@@ -31,7 +31,7 @@ type Phase =
 function ReminderDemo() {
   const [show, setShow] = useState(false);
   useEffect(() => {
-    const t = setTimeout(() => setShow(true), 700);
+    const t = setTimeout(() => setShow(true), 1200);
     return () => clearTimeout(t);
   }, []);
   return (
@@ -80,7 +80,7 @@ function ReminderDemo() {
 function CalendarDemo() {
   const [moved, setMoved] = useState(false);
   useEffect(() => {
-    const t = setTimeout(() => setMoved(true), 800);
+    const t = setTimeout(() => setMoved(true), 1400);
     return () => clearTimeout(t);
   }, []);
   return (
@@ -134,8 +134,8 @@ function HabitsDemo() {
   const [showNew, setShowNew] = useState(false);
   const [checked, setChecked] = useState(false);
   useEffect(() => {
-    const t1 = setTimeout(() => setShowNew(true), 600);
-    const t2 = setTimeout(() => setChecked(true), 1400);
+    const t1 = setTimeout(() => setShowNew(true), 1000);
+    const t2 = setTimeout(() => setChecked(true), 2200);
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
@@ -250,7 +250,7 @@ export default function HaptiAiOnboardingStep({
 }: {
   onComplete: () => void;
 }) {
-  const { user } = useAuth();
+  const { user, refreshProfile } = useAuth();
   const [phase, setPhase] = useState<Phase>("intro");
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [input, setInput] = useState("");
@@ -285,13 +285,13 @@ export default function HaptiAiOnboardingStep({
               { id: `${role}_${Date.now()}_${Math.random()}`, role, text },
             ]);
             resolve();
-          }, 800 + text.length * 6);
+          }, 1400 + text.length * 12);
         } else {
           setMessages((p) => [
             ...p,
             { id: `${role}_${Date.now()}_${Math.random()}`, role, text },
           ]);
-          setTimeout(resolve, 400);
+          setTimeout(resolve, 600);
         }
       }),
     [scroll],
@@ -318,28 +318,28 @@ export default function HaptiAiOnboardingStep({
       "ai",
       "Hey there! I'm Hapti AI — your productivity wingman.",
     );
-    await pause(800);
+    await pause(1400);
 
     setPhase("demo_reminders");
-    await pause(600);
+    await pause(1200);
     await addMsg("user", "Remind me to submit my report on Friday");
     await addMsg("ai", "Done! Reminder set for Friday ✓");
-    await pause(1000);
+    await pause(1800);
 
     setPhase("demo_calendar");
-    await pause(600);
+    await pause(1200);
     await addMsg("user", "Move my dentist appointment to next Monday");
     await addMsg("ai", "Got it! Moved to Monday ✓");
-    await pause(1000);
+    await pause(1800);
 
     setPhase("demo_habits");
-    await pause(600);
+    await pause(1200);
     await addMsg("user", "Add a habit to read for 20 minutes every day");
     await addMsg("ai", "Added to your daily habits! ✓");
-    await pause(1000);
+    await pause(1800);
 
     setPhase("summary");
-    await pause(1800);
+    await pause(2600);
 
     await addMsg("ai", "Now, what do you want me to call you?");
     setPhase("nameinput");
@@ -355,6 +355,7 @@ export default function HaptiAiOnboardingStep({
       try {
         await updateProfile(auth.currentUser!, { displayName: name });
         await updateDoc(doc(db, "users", user.uid), { displayName: name });
+        await refreshProfile();
       } catch {
         /* best effort */
       }
@@ -366,7 +367,7 @@ export default function HaptiAiOnboardingStep({
     );
     setPhase("done");
     onComplete();
-  }, [nameValue, user, addMsg, onComplete]);
+  }, [nameValue, user, addMsg, onComplete, refreshProfile]);
 
   const inputEnabled = phase === "sayhi" || phase === "nameinput";
   const currentInput = phase === "nameinput" ? nameValue : input;
@@ -438,27 +439,34 @@ export default function HaptiAiOnboardingStep({
             </AnimatePresence>
           </div>
 
-          {/* content: demo (left) + chat (right) */}
-          <div className="flex flex-col md:flex-row gap-6 items-center md:items-start justify-center">
-            {/* left — demo panel (desktop only, always occupies space) */}
-            <div className="hidden md:flex flex-1 items-center justify-center min-h-[340px]">
-              <AnimatePresence mode="wait">
-                {phase === "demo_reminders" && <ReminderDemo key="rem" />}
-                {phase === "demo_calendar" && <CalendarDemo key="cal" />}
-                {phase === "demo_habits" && <HabitsDemo key="hab" />}
-                {!showDemo && (
-                  <motion.div
-                    key="empty"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                  />
-                )}
-              </AnimatePresence>
-            </div>
+          {/* content: centered chat until demos; then demo (left) + chat (right) */}
+          <motion.div
+            layout
+            className={`flex gap-6 items-center justify-center transition-all duration-500 ${
+              showDemo ? "flex-col md:flex-row md:items-start" : "flex-col"
+            }`}
+          >
+            {/* left — demo panel (desktop only, appears when demos start) */}
+            {showDemo && (
+              <motion.div
+                initial={{ opacity: 0, x: -24 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.5, ease: [0.25, 0.1, 0.25, 1] }}
+                className="hidden md:flex flex-1 items-center justify-center min-h-[340px] min-w-0"
+              >
+                <AnimatePresence mode="wait">
+                  {phase === "demo_reminders" && <ReminderDemo key="rem" />}
+                  {phase === "demo_calendar" && <CalendarDemo key="cal" />}
+                  {phase === "demo_habits" && <HabitsDemo key="hab" />}
+                </AnimatePresence>
+              </motion.div>
+            )}
 
-            {/* right — chat panel */}
-            <div className="flex-1 flex justify-center md:justify-start">
+            {/* chat panel — centered when !showDemo, right side when showDemo */}
+            <motion.div
+              layout
+              className={`flex justify-center ${showDemo ? "md:flex-1 md:justify-start" : "w-full"}`}
+            >
               <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl border border-primary-light/30 overflow-hidden">
                 {/* header */}
                 <div className="flex items-center gap-2 px-4 py-3 border-b border-primary-light/20 bg-white">
@@ -533,8 +541,8 @@ export default function HaptiAiOnboardingStep({
                   </div>
                 </form>
               </div>
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
         </motion.div>
       )}
     </div>

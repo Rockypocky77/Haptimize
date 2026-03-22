@@ -32,7 +32,7 @@ export default function Card({
   const handleEnter: MouseEventHandler<HTMLDivElement> = useCallback((e) => {
     if (hover && ref.current) {
       ref.current.style.transform = "scale(1.015)";
-      ref.current.style.boxShadow = "0 4px 12px rgba(0,0,0,0.08)";
+      ref.current.style.boxShadow = "var(--shadow-hover, 0 4px 12px rgba(0,0,0,0.08))";
     }
     onMouseEnter?.(e);
   }, [hover, onMouseEnter]);
@@ -40,7 +40,7 @@ export default function Card({
   const handleLeave: MouseEventHandler<HTMLDivElement> = useCallback((e) => {
     if (hover && ref.current) {
       ref.current.style.transform = "scale(1)";
-      ref.current.style.boxShadow = "0 1px 3px rgba(0,0,0,0.04)";
+      ref.current.style.boxShadow = "var(--shadow-card, 0 1px 3px rgba(0,0,0,0.04))";
     }
     onMouseLeave?.(e);
   }, [hover, onMouseLeave]);
@@ -49,7 +49,7 @@ export default function Card({
     <div
       ref={ref}
       className={`
-        bg-white rounded-2xl shadow-sm border border-primary-light/30
+        bg-surface rounded-2xl shadow-sm border border-primary-light/30
         ${paddingClasses[padding]}
         ${className}
       `}

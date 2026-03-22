@@ -22,6 +22,7 @@ import DraggableReminder from "@/components/reminders/DraggableReminder";
 import DroppableDateBox from "@/components/reminders/DroppableDateBox";
 import CategorySelector from "@/components/reminders/CategorySelector";
 import AddCategoryModal, { type Category } from "@/components/reminders/AddCategoryModal";
+import DatePicker from "@/components/ui/DatePicker";
 import CategoryFilter from "@/components/reminders/CategoryFilter";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -34,10 +35,14 @@ import {
   deleteDoc,
   serverTimestamp,
 } from "@/lib/firebase/client";
+import { toast } from "sonner";
 import { Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import { useDemoGuard } from "@/components/ui/DemoGate";
 import FadeIn from "@/components/ui/FadeIn";
 import ClickSpark from "@/components/ui/ClickSpark";
+import { canAddReminder, canAddCategory, getRemindersLimit, getCategoriesLimit } from "@/lib/plan-limits";
+import PlansModal from "@/components/plans/PlansModal";
+import { getLocalDateString } from "@/lib/date";
 
 const UNDO_SECONDS = 5;
 
@@ -89,6 +94,7 @@ export default function RemindersPage() {
   const [newCategoryId, setNewCategoryId] = useState<string | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
   const [showAddCategory, setShowAddCategory] = useState(false);
+  const [showPlansModal, setShowPlansModal] = useState(false);
   const [viewMonth, setViewMonth] = useState(() => {
     const now = new Date();
     return { year: now.getFullYear(), month: now.getMonth() };
@@ -112,6 +118,7 @@ export default function RemindersPage() {
     }
 
     try {
+      const today = getLocalDateString();
       const casualCol = collection(db, "reminders", profile.uid, "casual");
       const casualSnap = await getDocs(casualCol);
       const casual: Reminder[] = casualSnap.docs.map((d) => ({
@@ -122,13 +129,37 @@ export default function RemindersPage() {
 
       const datedCol = collection(db, "reminders", profile.uid, "dated");
       const datedSnap = await getDocs(datedCol);
-      const dated: Reminder[] = datedSnap.docs.map((d) => ({
+      let dated: Reminder[] = datedSnap.docs.map((d) => ({
         id: d.id,
         ...d.data(),
         reminderType: "dated",
       })) as Reminder[];
 
-      setReminders([...casual, ...dated]);
+      // Move past uncompleted dated reminders to casual
+      const toMove = dated.filter((r) => r.date && r.date < today && !r.completed);
+      for (const r of toMove) {
+        try {
+          const casualRef = doc(db, "reminders", profile.uid, "casual", r.id);
+          await setDoc(casualRef, {
+            text: r.text,
+            completed: false,
+            categoryId: r.categoryId ?? null,
+            createdAt: serverTimestamp(),
+          });
+          await deleteDoc(doc(db, "reminders", profile.uid, "dated", r.id));
+        } catch {
+          // offline or error — skip
+        }
+      }
+      const movedIds = new Set(toMove.map((r) => r.id));
+      dated = dated.filter((r) => !movedIds.has(r.id));
+      const movedAsCasual: Reminder[] = toMove.map((r) => ({
+        ...r,
+        reminderType: "casual" as const,
+        date: undefined,
+      }));
+
+      setReminders([...casual, ...movedAsCasual, ...dated]);
 
       const categoriesCol = collection(db, "categories", profile.uid, "items");
       const categoriesSnap = await getDocs(categoriesCol);
@@ -145,6 +176,7 @@ export default function RemindersPage() {
   }, [loadReminders]);
 
   useEffect(() => {
+    const timeouts = undoTimeoutsRef.current;
     const onFocus = () => loadReminders();
     window.addEventListener("focus", onFocus);
     document.addEventListener("visibilitychange", () => {
@@ -152,8 +184,8 @@ export default function RemindersPage() {
     });
     return () => {
       window.removeEventListener("focus", onFocus);
-      undoTimeoutsRef.current.forEach((t) => clearTimeout(t));
-      undoTimeoutsRef.current.clear();
+      timeouts.forEach((t) => clearTimeout(t));
+      timeouts.clear();
     };
   }, [loadReminders]);
 
@@ -161,6 +193,11 @@ export default function RemindersPage() {
     async (name: string, color: string) => {
       if (!guardAction("creating categories")) return;
       if (!profile?.uid) return;
+      const plan = profile?.plan ?? "free";
+      if (!canAddCategory(plan, categories.length)) {
+        setShowPlansModal(true);
+        return;
+      }
       const id = `cat_${Date.now()}`;
       const category: Category = { id, name, color };
       setCategories((prev) => [...prev, category]);
@@ -170,10 +207,12 @@ export default function RemindersPage() {
         const ref = doc(db, "categories", profile.uid, "items", id);
         await setDoc(ref, { name, color });
       } catch {
-        // offline
+        setCategories((prev) => prev.filter((c) => c.id !== id));
+        setNewCategoryId((prev) => (prev === id ? null : prev));
+        toast.error("Failed to save category. Check your connection and try again.");
       }
     },
-    [profile?.uid, isDemo, guardAction]
+    [profile?.uid, profile?.plan, categories.length, isDemo, guardAction]
   );
 
   const addReminder = useCallback(
@@ -181,6 +220,11 @@ export default function RemindersPage() {
       e.preventDefault();
       if (!guardAction("creating reminders")) return;
       if (!profile?.uid || !newText.trim()) return;
+      const plan = profile?.plan ?? "free";
+      if (!canAddReminder(plan, reminders.length)) {
+        setShowPlansModal(true);
+        return;
+      }
       const id = `rem_${Date.now()}`;
       const reminder: Reminder = {
         id,
@@ -204,22 +248,29 @@ export default function RemindersPage() {
           createdAt: serverTimestamp(),
         });
       } catch {
-        // offline
+        setReminders((prev) => prev.filter((r) => r.id !== id));
+        toast.error("Failed to save reminder. Check your connection and try again.");
       }
     },
-    [profile?.uid, tab, newText, newDate, newCategoryId]
+    [profile?.uid, profile?.plan, tab, newText, newDate, newCategoryId, reminders.length, guardAction]
   );
 
   const removeReminder = useCallback(
-    (id: string, reminderType: "casual" | "dated") => {
-      if (!guardAction("deleting reminders")) return;
+    async (id: string, reminderType: "casual" | "dated", fromTimer = false) => {
+      if (!fromTimer && !guardAction("deleting reminders")) return;
+      const removed = reminders.find((r) => r.id === id);
       setReminders((prev) => prev.filter((r) => r.id !== id));
       if (!profile?.uid) return;
       const subCol = reminderType;
       const ref = doc(db, "reminders", profile.uid, subCol, id);
-      deleteDoc(ref).catch(() => {});
+      try {
+        await deleteDoc(ref);
+      } catch {
+        if (removed) setReminders((prev) => [...prev, removed]);
+        toast.error("Failed to delete reminder. Check your connection and try again.");
+      }
     },
-    [profile?.uid]
+    [profile?.uid, reminders, guardAction]
   );
 
   const toggleReminder = useCallback(
@@ -249,23 +300,28 @@ export default function RemindersPage() {
         const ref = doc(db, "reminders", profile.uid, subCol, id);
         await updateDoc(ref, { completed: nowCompleted });
       } catch {
-        // offline
+        setReminders((prev) =>
+          prev.map((r) => (r.id === id ? { ...r, completed: wasCompleted } : r))
+        );
+        toast.error("Failed to update reminder. Check your connection and try again.");
       }
 
-      // If just completed, start 5s timer to remove
+      // If just completed, start 5s timer to remove (bypass guard — user already completed)
       if (nowCompleted) {
         const t = setTimeout(() => {
           undoTimeoutsRef.current.delete(id);
-          removeReminder(id, rem.reminderType);
+          removeReminder(id, rem.reminderType, true);
         }, UNDO_SECONDS * 1000);
         undoTimeoutsRef.current.set(id, t);
       }
     },
-    [profile?.uid, reminders, removeReminder]
+    [profile?.uid, reminders, removeReminder, guardAction]
   );
 
   const moveReminderToDate = useCallback(
     async (reminderId: string, newDateStr: string) => {
+      const rem = reminders.find((r) => r.id === reminderId);
+      const prevDate = rem?.date;
       setReminders((prev) =>
         prev.map((r) =>
           r.id === reminderId ? { ...r, date: newDateStr } : r
@@ -276,10 +332,15 @@ export default function RemindersPage() {
         const ref = doc(db, "reminders", profile.uid, "dated", reminderId);
         await updateDoc(ref, { date: newDateStr });
       } catch {
-        // offline
+        setReminders((prev) =>
+          prev.map((r) =>
+            r.id === reminderId ? { ...r, date: prevDate } : r
+          )
+        );
+        toast.error("Failed to move reminder. Check your connection and try again.");
       }
     },
-    [profile?.uid]
+    [profile?.uid, reminders]
   );
 
   const categoryMap = useMemo(
@@ -304,14 +365,30 @@ export default function RemindersPage() {
 
   // Group dated reminders by date for the current month
   const daysInMonth = getDaysInMonth(viewMonth.year, viewMonth.month);
+  const todayDate = useMemo(() => {
+    const n = new Date();
+    return { year: n.getFullYear(), month: n.getMonth(), day: n.getDate() };
+  }, []);
+
+  // When viewing current month, start from today; otherwise show all days
+  const startDay = useMemo(() => {
+    if (
+      viewMonth.year === todayDate.year &&
+      viewMonth.month === todayDate.month
+    ) {
+      return todayDate.day;
+    }
+    return 1;
+  }, [viewMonth.year, viewMonth.month, todayDate]);
+
   const datedByDate = useMemo(() => {
     const grouped: Record<string, Reminder[]> = {};
-    for (let d = 1; d <= daysInMonth; d++) {
+    for (let d = startDay; d <= daysInMonth; d++) {
       const dateStr = formatDate(viewMonth.year, viewMonth.month, d);
       grouped[dateStr] = datedReminders.filter((r) => r.date === dateStr);
     }
     return grouped;
-  }, [datedReminders, viewMonth, daysInMonth]);
+  }, [datedReminders, viewMonth, daysInMonth, startDay]);
 
   function getTargetDateFromOver(overId: string): string | null {
     const overStr = String(overId);
@@ -360,16 +437,16 @@ export default function RemindersPage() {
 
       {/* Tabs */}
       <FadeIn delay={0.1}>
-      <div className="flex gap-2">
+      <div className="relative flex gap-2">
         <ClickSpark sparkColor="#7FAF8F" sparkSize={10} sparkRadius={18} className="h-auto min-h-0">
         <button
           onClick={() => setTab("casual")}
-          className={`px-5 py-2 rounded-xl text-sm font-medium cursor-pointer shadow-sm ${
+          className={`relative px-5 py-2 rounded-xl text-sm font-medium cursor-pointer shadow-sm transition-colors duration-200 ${
             tab === "casual"
               ? "bg-primary text-white"
-              : "bg-white text-neutral-dark/60 hover:bg-primary-light/20"
+              : "bg-surface text-neutral-dark/60 hover:bg-primary-light/20"
           }`}
-          style={{ transition: "transform 500ms cubic-bezier(0.25, 0.1, 0.25, 1), background-color 150ms ease, color 150ms ease" }}
+          style={{ transition: "transform 500ms cubic-bezier(0.25, 0.1, 0.25, 1), background-color 200ms ease, color 200ms ease" }}
           onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.06)"; }}
           onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
         >
@@ -377,12 +454,12 @@ export default function RemindersPage() {
         </button>
         <button
           onClick={() => setTab("dated")}
-          className={`px-5 py-2 rounded-xl text-sm font-medium cursor-pointer shadow-sm ${
+          className={`relative px-5 py-2 rounded-xl text-sm font-medium cursor-pointer shadow-sm transition-colors duration-200 ${
             tab === "dated"
               ? "bg-primary text-white"
-              : "bg-white text-neutral-dark/60 hover:bg-primary-light/20"
+              : "bg-surface text-neutral-dark/60 hover:bg-primary-light/20"
           }`}
-          style={{ transition: "transform 500ms cubic-bezier(0.25, 0.1, 0.25, 1), background-color 150ms ease, color 150ms ease" }}
+          style={{ transition: "transform 500ms cubic-bezier(0.25, 0.1, 0.25, 1), background-color 200ms ease, color 200ms ease" }}
           onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.06)"; }}
           onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
         >
@@ -394,19 +471,25 @@ export default function RemindersPage() {
 
       {/* Add reminder */}
       <FadeIn delay={0.15}>
-      <Card>
+      <Card className="overflow-visible">
         <form onSubmit={addReminder} className="flex gap-3 items-center">
           <Input
-            placeholder="Add a reminder..."
+            placeholder={
+              !canAddReminder(profile?.plan ?? "free", reminders.length)
+                ? `Limit reached (${getRemindersLimit(profile?.plan ?? "free")} reminders on Free)`
+                : "Add a reminder..."
+            }
             value={newText}
             onChange={(e) => setNewText(e.target.value)}
             className="flex-1"
+            disabled={!canAddReminder(profile?.plan ?? "free", reminders.length)}
           />
           {tab === "dated" && (
-            <Input
-              type="date"
+            <DatePicker
               value={newDate}
-              onChange={(e) => setNewDate(e.target.value)}
+              onChange={setNewDate}
+              placeholder="Pick date"
+              disabled={!canAddReminder(profile?.plan ?? "free", reminders.length)}
               className="w-40"
             />
           )}
@@ -414,14 +497,36 @@ export default function RemindersPage() {
             categories={categories}
             value={newCategoryId}
             onChange={setNewCategoryId}
-            onAddCategory={() => setShowAddCategory(true)}
+            onAddCategory={() => {
+              if (canAddCategory(profile?.plan ?? "free", categories.length)) {
+                setShowAddCategory(true);
+              } else {
+                setShowPlansModal(true);
+              }
+            }}
+            canAddCategory={canAddCategory(profile?.plan ?? "free", categories.length)}
+            categoriesLimit={getCategoriesLimit(profile?.plan ?? "free")}
           />
-          <Button type="submit" disabled={!newText.trim()}>
+          <Button
+            type={canAddReminder(profile?.plan ?? "free", reminders.length) ? "submit" : "button"}
+            disabled={!newText.trim() && canAddReminder(profile?.plan ?? "free", reminders.length)}
+            onClick={
+              !canAddReminder(profile?.plan ?? "free", reminders.length)
+                ? () => setShowPlansModal(true)
+                : undefined
+            }
+          >
             <Plus size={18} />
           </Button>
         </form>
       </Card>
       </FadeIn>
+
+      <PlansModal
+        open={showPlansModal}
+        onClose={() => setShowPlansModal(false)}
+        currentPlan={profile?.plan ?? "free"}
+      />
 
       <AddCategoryModal
         open={showAddCategory}
@@ -489,7 +594,7 @@ export default function RemindersPage() {
               <ClickSpark sparkColor="#7FAF8F" sparkSize={8} sparkRadius={14} className="inline-flex">
               <button
                 onClick={prevMonth}
-                className="p-2 rounded-lg hover:bg-white text-neutral-dark/50 cursor-pointer"
+                className="p-2 rounded-lg hover:bg-surface text-neutral-dark/50 cursor-pointer"
                 style={{ transition: "transform 500ms cubic-bezier(0.25, 0.1, 0.25, 1)" }}
                 onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.15)"; }}
                 onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
@@ -503,7 +608,7 @@ export default function RemindersPage() {
               <ClickSpark sparkColor="#7FAF8F" sparkSize={8} sparkRadius={14} className="inline-flex">
               <button
                 onClick={nextMonth}
-                className="p-2 rounded-lg hover:bg-white text-neutral-dark/50 cursor-pointer"
+                className="p-2 rounded-lg hover:bg-surface text-neutral-dark/50 cursor-pointer"
                 style={{ transition: "transform 500ms cubic-bezier(0.25, 0.1, 0.25, 1)" }}
                 onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.15)"; }}
                 onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
@@ -522,8 +627,8 @@ export default function RemindersPage() {
           </div>
 
           <div className="space-y-4">
-            {Array.from({ length: daysInMonth }, (_, i) => {
-              const day = i + 1;
+            {Array.from({ length: daysInMonth - startDay + 1 }, (_, i) => {
+              const day = startDay + i;
               const dateStr = formatDate(viewMonth.year, viewMonth.month, day);
               const rems = datedByDate[dateStr] ?? [];
               return (

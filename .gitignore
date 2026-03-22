@@ -21,6 +21,7 @@ frontend/out/
 frontend/build/
 
 # IDE
+.cursor/
 .idea/
 .vscode/
 *.swp

@@ -23,12 +23,20 @@ interface ConsistencyChartProps {
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 function formatDateLabel(dateStr: string): string {
-  const [m, d] = dateStr.split("-").map(Number);
-  const now = new Date();
-  const date = new Date(now.getFullYear(), m - 1, d);
+  const parts = dateStr.split("-").map(Number);
+  const y = parts.length >= 3 ? parts[0] : new Date().getFullYear();
+  const m = parts.length >= 3 ? parts[1] : parts[0];
+  const d = parts.length >= 3 ? parts[2] : parts[1];
+  const date = new Date(y, m - 1, d);
   const dayName = WEEKDAYS[date.getDay()];
   return `${dayName} ${m}/${d}`;
 }
+
+const tickStyle = {
+  fontSize: 11,
+  fill: "var(--theme-foreground)",
+  opacity: 0.7,
+};
 
 export default function ConsistencyChart({ data }: ConsistencyChartProps) {
   const [show, setShow] = useState(false);
@@ -62,31 +70,42 @@ export default function ConsistencyChart({ data }: ConsistencyChartProps) {
       }}
     >
       <ResponsiveContainer width="100%" height={200}>
-        <AreaChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+        <AreaChart
+          data={chartData}
+          margin={{
+            top: 5,
+            right: 10,
+            left: -20,
+            bottom: chartData.length > 12 ? 30 : 0,
+          }}
+        >
           <defs>
             <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#7FAF8F" stopOpacity={0.4} />
               <stop offset="100%" stopColor="#7FAF8F" stopOpacity={0.05} />
             </linearGradient>
           </defs>
-          <CartesianGrid strokeDasharray="3 3" stroke="#A7C6B030" />
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--theme-foreground)" strokeOpacity={0.15} />
           <XAxis
             dataKey="label"
-            tick={{ fontSize: 11, fill: "#2E3A3F80" }}
+            tick={{ ...tickStyle, fontSize: 10 }}
             tickLine={false}
             axisLine={false}
+            interval={chartData.length > 8 ? Math.max(0, Math.floor(chartData.length / 7)) : 0}
+            angle={0}
           />
           <YAxis
             domain={[0, 100]}
-            tick={{ fontSize: 11, fill: "#2E3A3F80" }}
+            tick={tickStyle}
             tickLine={false}
             axisLine={false}
             tickFormatter={(v) => `${v}%`}
           />
           <Tooltip
             contentStyle={{
-              backgroundColor: "#fff",
-              border: "1px solid #A7C6B040",
+              backgroundColor: "var(--theme-surface)",
+              color: "var(--theme-foreground)",
+              border: "1px solid var(--theme-muted)",
               borderRadius: 12,
               fontSize: 13,
             }}

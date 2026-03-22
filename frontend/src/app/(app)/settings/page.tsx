@@ -10,26 +10,29 @@ import {
   db,
   doc,
   updateDoc,
-  deleteDoc,
   collection,
   getDocs,
+  deleteDoc,
 } from "@/lib/firebase/client";
-import { auth } from "@/lib/firebase/client";
 import {
   updatePassword,
   updateProfile,
   EmailAuthProvider,
   reauthenticateWithCredential,
-  deleteUser,
 } from "firebase/auth";
-import { Shield, User, Bell, Sparkles, Trash2, AlertTriangle, LogOut, Flame } from "lucide-react";
+import { Shield, User, Bell, Sparkles, AlertTriangle, LogOut, Flame, Sun, Moon, FileText, Crown } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useDemoGuard } from "@/components/ui/DemoGate";
+import { useTheme } from "@/contexts/ThemeContext";
 import { useTransition } from "@/contexts/TransitionContext";
 import FadeIn from "@/components/ui/FadeIn";
 import ClickSpark from "@/components/ui/ClickSpark";
+import LegalModal from "@/components/legal/LegalModal";
+import PlansModal from "@/components/plans/PlansModal";
 
 export default function SettingsPage() {
-  const { user, profile, logout, refreshProfile } = useAuth();
+  const { user, profile, logout, deleteAccount: authDeleteAccount, refreshProfile } = useAuth();
+  const { theme, setTheme } = useTheme();
   const { guardAction } = useDemoGuard();
   const { startTransition } = useTransition();
   const isEmailAuth = profile?.authProvider === "email";
@@ -38,7 +41,6 @@ export default function SettingsPage() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [aiEnabled, setAiEnabled] = useState(profile?.aiEnabled ?? true);
-  const [humanize, setHumanize] = useState(profile?.humanize ?? false);
   const [streakThreshold, setStreakThreshold] = useState(profile?.streakThreshold ?? 80);
   const [notifications, setNotifications] = useState(true);
 
@@ -49,17 +51,18 @@ export default function SettingsPage() {
     }
   }, [profile?.streakThreshold]);
 
-  // Sync aiEnabled and humanize when profile loads
+  // Sync aiEnabled when profile loads
   useEffect(() => {
     if (profile?.aiEnabled != null) setAiEnabled(profile.aiEnabled);
-    if (profile?.humanize != null) setHumanize(profile.humanize);
-  }, [profile?.aiEnabled, profile?.humanize]);
+  }, [profile?.aiEnabled]);
   const [emailUpdates, setEmailUpdates] = useState(false);
 
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [showWipeModal, setShowWipeModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showLegalModal, setShowLegalModal] = useState<"terms" | "privacy" | null>(null);
+  const [showPlansModal, setShowPlansModal] = useState(false);
   const [dangerInput, setDangerInput] = useState("");
 
   const saveStreakThreshold = useCallback(async () => {
@@ -79,12 +82,12 @@ export default function SettingsPage() {
     }
   }, [user, streakThreshold, refreshProfile, guardAction]);
 
-  const saveAiAndHumanize = useCallback(async (ai: boolean, hum: boolean) => {
+  const saveAiAndHumanize = useCallback(async (ai: boolean) => {
     if (!guardAction("saving settings")) return;
     if (!user) return;
     try {
       const ref = doc(db, "users", user.uid);
-      await updateDoc(ref, { aiEnabled: ai, humanize: hum });
+      await updateDoc(ref, { aiEnabled: ai, humanize: false });
       await refreshProfile();
     } catch {
       setMessage("Failed to save.");
@@ -102,7 +105,7 @@ export default function SettingsPage() {
       await updateDoc(ref, {
         displayName: username,
         aiEnabled,
-        humanize,
+        humanize: false,
         streakThreshold,
       });
       await refreshProfile();
@@ -112,7 +115,7 @@ export default function SettingsPage() {
     } finally {
       setSaving(false);
     }
-  }, [user, username, aiEnabled, humanize, streakThreshold, refreshProfile]);
+  }, [user, username, aiEnabled, streakThreshold, refreshProfile, guardAction]);
 
   const changePassword = useCallback(async () => {
     if (!guardAction("changing password")) return;
@@ -133,7 +136,7 @@ export default function SettingsPage() {
     } finally {
       setSaving(false);
     }
-  }, [user, isEmailAuth, currentPassword, newPassword]);
+  }, [user, isEmailAuth, currentPassword, newPassword, guardAction]);
 
   const wipeData = useCallback(async () => {
     if (!guardAction("wiping data")) return;
@@ -182,14 +185,12 @@ export default function SettingsPage() {
     } catch {
       setMessage("Failed to wipe data.");
     }
-  }, [user]);
+  }, [user, guardAction]);
 
   const deleteAccount = useCallback(async () => {
     if (!user) return;
     try {
-      const userDocRef = doc(db, "users", user.uid);
-      await deleteDoc(userDocRef);
-      await deleteUser(user);
+      await authDeleteAccount();
       setShowDeleteModal(false);
       startTransition("/");
       await logout();
@@ -199,7 +200,7 @@ export default function SettingsPage() {
       );
       setShowDeleteModal(false);
     }
-  }, [user, logout, startTransition]);
+  }, [user, authDeleteAccount, logout, startTransition]);
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -207,11 +208,123 @@ export default function SettingsPage() {
         <h1 className="text-2xl font-bold text-neutral-dark">Settings</h1>
       </FadeIn>
 
-      {message && (
-        <div className="bg-primary/10 text-primary text-sm rounded-xl px-4 py-3">
-          {message}
+      <AnimatePresence>
+        {message && (
+          <motion.div
+            className="bg-primary/10 text-primary text-sm rounded-xl px-4 py-3"
+            initial={{ opacity: 0, y: -10, height: 0 }}
+            animate={{ opacity: 1, y: 0, height: "auto" }}
+            exit={{ opacity: 0, y: -10, height: 0 }}
+            transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
+          >
+            {message}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Appearance */}
+      <FadeIn delay={0.03}>
+      <Card>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {theme === "dark" ? (
+              <Moon size={16} className="text-primary" />
+            ) : (
+              <Sun size={16} className="text-primary" />
+            )}
+            <div>
+              <p className="text-sm font-semibold text-neutral-dark/70">
+                Dark mode
+              </p>
+              <p className="text-xs text-neutral-dark/40">
+                Switch between light and dark theme
+              </p>
+            </div>
+          </div>
+          <ClickSpark sparkColor="#fff" sparkSize={8} sparkRadius={14} className="inline-flex">
+          <button
+            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+            className={`
+              w-12 h-7 rounded-full relative cursor-pointer
+              ${theme === "dark" ? "bg-primary" : "bg-neutral-dark/20"}
+            `}
+            style={{ transition: "transform 500ms cubic-bezier(0.25, 0.1, 0.25, 1), background-color 150ms ease" }}
+            onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.1)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
+          >
+            <div
+              className={`
+                absolute top-1 w-5 h-5 rounded-full bg-white shadow transition-transform
+                ${theme === "dark" ? "translate-x-6" : "translate-x-1"}
+              `}
+            />
+          </button>
+          </ClickSpark>
         </div>
-      )}
+      </Card>
+      </FadeIn>
+
+      {/* Plan */}
+      <FadeIn delay={0.035}>
+      <button
+        type="button"
+        onClick={() => setShowPlansModal(true)}
+        className="w-full text-left"
+      >
+        <Card className="cursor-pointer hover:border-primary-light/50 transition-colors">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Crown size={16} className="text-primary" />
+              <div>
+                <p className="text-sm font-semibold text-neutral-dark/70">
+                  Your plan
+                </p>
+                <p className="text-xs text-neutral-dark/40">
+                  {profile?.plan === "pro" ? "Pro" : profile?.plan === "max" ? "Max" : "Free"}
+                </p>
+              </div>
+            </div>
+            <span className="text-sm text-primary">View plans</span>
+          </div>
+        </Card>
+      </button>
+      </FadeIn>
+
+      {/* Legal */}
+      <FadeIn delay={0.04}>
+      <Card>
+        <h3 className="text-sm font-semibold text-neutral-dark/70 mb-4 flex items-center gap-2">
+          <FileText size={16} />
+          Legal
+        </h3>
+        <div className="space-y-2">
+          <button
+            onClick={() => setShowLegalModal("terms")}
+            className="block text-sm text-primary hover:underline hover:translate-x-1 text-left transition-transform duration-200"
+          >
+            Terms of Service
+          </button>
+          <button
+            onClick={() => setShowLegalModal("privacy")}
+            className="block text-sm text-primary hover:underline hover:translate-x-1 text-left transition-transform duration-200"
+          >
+            Privacy Policy
+          </button>
+        </div>
+      </Card>
+      </FadeIn>
+
+      <LegalModal
+        open={showLegalModal !== null}
+        onClose={() => setShowLegalModal(null)}
+        type={showLegalModal ?? "terms"}
+      />
+
+      <PlansModal
+        open={showPlansModal}
+        onClose={() => setShowPlansModal(false)}
+        currentPlan={profile?.plan ?? "free"}
+      />
 
       {/* Sign out */}
       <FadeIn delay={0.05}>
@@ -361,7 +474,7 @@ export default function SettingsPage() {
               if (!guardAction("saving settings")) return;
               const next = !aiEnabled;
               setAiEnabled(next);
-              saveAiAndHumanize(next, humanize);
+              saveAiAndHumanize(next);
             }}
             className={`
               w-12 h-7 rounded-full relative cursor-pointer
@@ -382,51 +495,6 @@ export default function SettingsPage() {
         </div>
       </Card>
       </FadeIn>
-
-      {/* Humanize toggle */}
-      {aiEnabled && (
-      <FadeIn delay={0.22}>
-      <Card>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <span className="text-base">💬</span>
-            <div>
-              <p className="text-sm font-semibold text-neutral-dark/70">
-                Humanize
-              </p>
-              <p className="text-xs text-neutral-dark/40">
-                Hapti AI texts like a real person
-              </p>
-            </div>
-          </div>
-          <ClickSpark sparkColor="#fff" sparkSize={8} sparkRadius={14} className="inline-flex">
-          <button
-            onClick={() => {
-              if (!guardAction("saving settings")) return;
-              const next = !humanize;
-              setHumanize(next);
-              saveAiAndHumanize(aiEnabled, next);
-            }}
-            className={`
-              w-12 h-7 rounded-full relative cursor-pointer
-              ${humanize ? "bg-primary" : "bg-neutral-dark/20"}
-            `}
-            style={{ transition: "transform 500ms cubic-bezier(0.25, 0.1, 0.25, 1), background-color 150ms ease" }}
-            onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.1)"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
-          >
-            <div
-              className={`
-                absolute top-1 w-5 h-5 rounded-full bg-white shadow transition-transform
-                ${humanize ? "translate-x-6" : "translate-x-1"}
-              `}
-            />
-          </button>
-          </ClickSpark>
-        </div>
-      </Card>
-      </FadeIn>
-      )}
 
       {/* Notifications */}
       <FadeIn delay={0.25}>

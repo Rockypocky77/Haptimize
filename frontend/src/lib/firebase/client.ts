@@ -11,8 +11,12 @@ import {
 } from "firebase/auth";
 import {
   getFirestore,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentSingleTabManager,
   doc,
   getDoc,
+  getDocFromServer,
   setDoc,
   updateDoc,
   collection,
@@ -50,7 +54,17 @@ function ensureAuth(): Auth {
 }
 
 function ensureDb(): Firestore {
-  if (!_db) _db = getFirestore(getApp());
+  if (!_db) {
+    const app = getApp();
+    try {
+      _db = initializeFirestore(app, {
+        localCache: persistentLocalCache({ tabManager: persistentSingleTabManager({}) }),
+      });
+    } catch {
+      // Fallback if persistence fails (e.g. multiple tabs, private browsing)
+      _db = getFirestore(app);
+    }
+  }
   return _db;
 }
 
@@ -74,6 +88,7 @@ export {
   onAuthStateChanged,
   doc,
   getDoc,
+  getDocFromServer,
   setDoc,
   updateDoc,
   collection,

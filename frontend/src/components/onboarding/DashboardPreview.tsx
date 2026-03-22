@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Flame, Bell, CheckSquare } from "lucide-react";
+import { Flame, Bell, CheckSquare, BarChart3 } from "lucide-react";
 import BlurText from "./BlurText";
 
 interface FocusItem {
@@ -87,12 +87,43 @@ function MiniHabits() {
   );
 }
 
+function MiniAnalytics() {
+  return (
+    <div className="bg-white rounded-xl px-4 py-3 shadow-sm border border-gray-200/60">
+      <h4 className="text-xs font-semibold text-neutral-dark/80 mb-2 flex items-center gap-1.5">
+        <BarChart3 size={12} /> Analytics
+      </h4>
+      <div className="space-y-2">
+        <div>
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[10px] font-medium text-neutral-dark/70">Momentum Score</span>
+            <span className="text-[10px] font-bold text-primary">78</span>
+          </div>
+          <div className="h-1.5 rounded-full bg-gray-200 overflow-hidden">
+            <motion.div
+              className="h-full rounded-full bg-gradient-to-r from-primary via-primary-light to-accent"
+              initial={{ width: 0 }}
+              animate={{ width: "78%" }}
+              transition={{ duration: 1, delay: 0.5, ease: [0.25, 0.1, 0.25, 1] }}
+            />
+          </div>
+        </div>
+        <div className="flex justify-between text-[10px] text-neutral-dark/60">
+          <span>Top: Exercise (92%)</span>
+          <span>Needs work: Read (45%)</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardPreview({ onComplete }: { onComplete: () => void }) {
   const [focusIndex, setFocusIndex] = useState(-1);
   const [dashboardVisible, setDashboardVisible] = useState(false);
 
   const focusItems: FocusItem[] = [
-    { id: "circle", label: "This is your daily progress. Try your best everyday!" , content: null },
+    { id: "circle", label: "This is your daily progress. Try your best everyday!", content: null },
+    { id: "analytics", label: "Your analytics track your momentum and show which habits need attention.", content: null },
     { id: "streak", label: "This logs how many days in a row you've been consistent.", content: null },
     { id: "reminders", label: "This is a quick overview of your reminders.", content: null },
     { id: "habits", label: "This is an overview of your habits.", content: null },
@@ -108,11 +139,12 @@ export default function DashboardPreview({ onComplete }: { onComplete: () => voi
     const t2 = setTimeout(() => setFocusIndex(1), 5000);
     const t3 = setTimeout(() => setFocusIndex(2), 8000);
     const t4 = setTimeout(() => setFocusIndex(3), 11000);
-    const t5 = setTimeout(() => {
+    const t5 = setTimeout(() => setFocusIndex(4), 14000);
+    const t6 = setTimeout(() => {
       setFocusIndex(-2);
       handleComplete();
-    }, 14000);
-    return () => { clearTimeout(t0); clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); clearTimeout(t5); };
+    }, 17000);
+    return () => { clearTimeout(t0); clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); clearTimeout(t5); clearTimeout(t6); };
   }, [handleComplete]);
 
   const isFocused = (id: string) => focusIndex >= 0 && focusItems[focusIndex]?.id === id;
@@ -139,11 +171,16 @@ export default function DashboardPreview({ onComplete }: { onComplete: () => voi
           transition={{ duration: 0.6, ease: [0.25, 0.1, 0.25, 1] }}
         >
           <div className="grid grid-cols-2 gap-3">
-            <motion.div
-              className={`flex items-center justify-center bg-white rounded-xl p-4 shadow-sm border border-gray-200/60 transition-all duration-500 ${blurStyle("circle")}`}
-            >
-              <MiniCircle pct={72} />
-            </motion.div>
+            <div className="space-y-3">
+              <motion.div
+                className={`flex items-center justify-center bg-white rounded-xl p-4 shadow-sm border border-gray-200/60 transition-all duration-500 ${blurStyle("circle")}`}
+              >
+                <MiniCircle pct={72} />
+              </motion.div>
+              <motion.div className={`transition-all duration-500 ${blurStyle("analytics")}`}>
+                <MiniAnalytics />
+              </motion.div>
+            </div>
             <div className="space-y-3">
               <motion.div className={`transition-all duration-500 ${blurStyle("streak")}`}>
                 <MiniStreak />
@@ -151,10 +188,10 @@ export default function DashboardPreview({ onComplete }: { onComplete: () => voi
               <motion.div className={`transition-all duration-500 ${blurStyle("reminders")}`}>
                 <MiniReminders />
               </motion.div>
+              <motion.div className={`transition-all duration-500 ${blurStyle("habits")}`}>
+                <MiniHabits />
+              </motion.div>
             </div>
-            <motion.div className={`col-span-2 transition-all duration-500 ${blurStyle("habits")}`}>
-              <MiniHabits />
-            </motion.div>
           </div>
         </motion.div>
       )}

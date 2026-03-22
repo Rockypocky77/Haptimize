@@ -9,23 +9,29 @@ import {
   collection,
   getDocs,
   doc,
+  setDoc,
   updateDoc,
   deleteDoc,
+  serverTimestamp,
 } from "@/lib/firebase/client";
-import Card from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
+import DatePicker from "@/components/ui/DatePicker";
 import Button from "@/components/ui/Button";
+import { toast } from "sonner";
 import {
   ChevronLeft,
   ChevronRight,
   Check,
   Undo2,
-  CalendarDays,
   Trash2,
 } from "lucide-react";
 import ClickSpark from "@/components/ui/ClickSpark";
 import CategoryFilter from "@/components/reminders/CategoryFilter";
-import type { Category } from "@/components/reminders/AddCategoryModal";
+import CategorySelector from "@/components/reminders/CategorySelector";
+import AddCategoryModal, { type Category } from "@/components/reminders/AddCategoryModal";
+import { canAddReminder, canAddCategory, getRemindersLimit, getCategoriesLimit } from "@/lib/plan-limits";
+import PlansModal from "@/components/plans/PlansModal";
+import { Plus } from "lucide-react";
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -70,6 +76,15 @@ export default function CalendarGrid() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [editDate, setEditDate] = useState("");
+  const [newText, setNewText] = useState("");
+  const [newDate, setNewDate] = useState(() => {
+    const n = new Date();
+    return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-${String(n.getDate()).padStart(2, "0")}`;
+  });
+  const [newCategoryId, setNewCategoryId] = useState<string | null>(null);
+  const [showAddCategory, setShowAddCategory] = useState(false);
+  const [showPlansModal, setShowPlansModal] = useState(false);
+  const [casualCount, setCasualCount] = useState(0);
   const undoTimeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   const today = useMemo(() => {
@@ -86,6 +101,7 @@ export default function CalendarGrid() {
         { id: "demo_cd1", text: "Submit project report", date: today, completed: false, categoryId: "demo_cat1" },
         { id: "demo_cd2", text: "Team standup meeting", date: today, completed: false, categoryId: "demo_cat2" },
       ]);
+      setCasualCount(3); // demo has 3 casual
       setCategories([
         { id: "demo_cat1", name: "Work", color: "#7FAF8F" },
         { id: "demo_cat2", name: "Personal", color: "#F2C94C" },
@@ -94,27 +110,29 @@ export default function CalendarGrid() {
     }
 
     try {
-      const datedCol = collection(db, "reminders", profile.uid, "dated");
-      const snap = await getDocs(datedCol);
+      const [datedSnap, casualSnap, categoriesSnap] = await Promise.all([
+        getDocs(collection(db, "reminders", profile.uid, "dated")),
+        getDocs(collection(db, "reminders", profile.uid, "casual")),
+        getDocs(collection(db, "categories", profile.uid, "items")),
+      ]);
       setReminders(
-        snap.docs.map((d) => ({ id: d.id, ...d.data() } as Reminder))
+        datedSnap.docs.map((d) => ({ id: d.id, ...d.data() } as Reminder))
       );
-
-      const categoriesCol = collection(db, "categories", profile.uid, "items");
-      const categoriesSnap = await getDocs(categoriesCol);
+      setCasualCount(casualSnap.docs.length);
       setCategories(
         categoriesSnap.docs.map((d) => ({ id: d.id, ...d.data() } as Category))
       );
     } catch {
       // Firebase not configured
     }
-  }, [profile?.uid, viewMonth, isDemo]);
+  }, [profile?.uid, isDemo]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
   useEffect(() => {
+    const timeouts = undoTimeoutsRef.current;
     const onFocus = () => loadData();
     window.addEventListener("focus", onFocus);
     document.addEventListener("visibilitychange", () => {
@@ -122,20 +140,26 @@ export default function CalendarGrid() {
     });
     return () => {
       window.removeEventListener("focus", onFocus);
-      undoTimeoutsRef.current.forEach((t) => clearTimeout(t));
-      undoTimeoutsRef.current.clear();
+      timeouts.forEach((t) => clearTimeout(t));
+      timeouts.clear();
     };
   }, [loadData]);
 
   const removeReminder = useCallback(
-    (id: string) => {
+    async (id: string) => {
       if (!guardAction("deleting reminders")) return;
+      const removed = reminders.find((r) => r.id === id);
       setReminders((prev) => prev.filter((r) => r.id !== id));
       if (!profile?.uid) return;
       const ref = doc(db, "reminders", profile.uid, "dated", id);
-      deleteDoc(ref).catch(() => {});
+      try {
+        await deleteDoc(ref);
+      } catch {
+        if (removed) setReminders((prev) => [...prev, removed]);
+        toast.error("Failed to delete reminder. Check your connection and try again.");
+      }
     },
-    [profile?.uid]
+    [profile?.uid, reminders, guardAction]
   );
 
   const toggleReminder = useCallback(
@@ -163,7 +187,10 @@ export default function CalendarGrid() {
         const ref = doc(db, "reminders", profile.uid, "dated", id);
         await updateDoc(ref, { completed: nowCompleted });
       } catch {
-        // offline
+        setReminders((prev) =>
+          prev.map((r) => (r.id === id ? { ...r, completed: wasCompleted } : r))
+        );
+        toast.error("Failed to update reminder. Check your connection and try again.");
       }
 
       if (nowCompleted) {
@@ -174,12 +201,81 @@ export default function CalendarGrid() {
         undoTimeoutsRef.current.set(id, t);
       }
     },
-    [profile?.uid, reminders, removeReminder]
+    [profile?.uid, reminders, removeReminder, guardAction]
+  );
+
+  const totalRemindersCount = reminders.length + casualCount;
+
+  const addCategory = useCallback(
+    async (name: string, color: string) => {
+      if (!guardAction("creating categories")) return;
+      if (!profile?.uid) return;
+      const plan = profile?.plan ?? "free";
+      if (!canAddCategory(plan, categories.length)) {
+        setShowPlansModal(true);
+        return;
+      }
+      const id = `cat_${Date.now()}`;
+      const category: Category = { id, name, color };
+      setCategories((prev) => [...prev, category]);
+      setNewCategoryId(id);
+      if (isDemo) return;
+      try {
+        await setDoc(doc(db, "categories", profile.uid, "items", id), { name, color });
+      } catch {
+        setCategories((prev) => prev.filter((c) => c.id !== id));
+        setNewCategoryId((prev) => (prev === id ? null : prev));
+        toast.error("Failed to save category. Check your connection and try again.");
+      }
+    },
+    [profile?.uid, profile?.plan, categories.length, isDemo, guardAction]
+  );
+
+  const addReminder = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!guardAction("creating reminders")) return;
+      if (!profile?.uid || !newText.trim()) return;
+      const plan = profile?.plan ?? "free";
+      if (!canAddReminder(plan, totalRemindersCount)) {
+        setShowPlansModal(true);
+        return;
+      }
+      const id = `rem_${Date.now()}`;
+      const reminder: Reminder = {
+        id,
+        text: newText.trim(),
+        date: newDate || today,
+        completed: false,
+        categoryId: newCategoryId ?? undefined,
+      };
+      setReminders((prev) => [...prev, reminder]);
+      setNewText("");
+      setNewDate(today);
+      if (isDemo) return;
+      try {
+        const ref = doc(db, "reminders", profile.uid, "dated", id);
+        await setDoc(ref, {
+          text: reminder.text,
+          date: reminder.date,
+          completed: false,
+          categoryId: reminder.categoryId ?? null,
+          createdAt: serverTimestamp(),
+        });
+      } catch {
+        setReminders((prev) => prev.filter((r) => r.id !== id));
+        toast.error("Failed to save reminder. Check your connection and try again.");
+      }
+    },
+    [profile?.uid, profile?.plan, newText, newDate, newCategoryId, totalRemindersCount, today, isDemo, guardAction]
   );
 
   const saveEdit = useCallback(
     async (id: string) => {
       if (!profile?.uid) return;
+      const rem = reminders.find((r) => r.id === id);
+      const prevText = rem?.text;
+      const prevDate = rem?.date;
       setReminders((prev) =>
         prev.map((r) =>
           r.id === id
@@ -195,10 +291,15 @@ export default function CalendarGrid() {
         if (editDate) updates.date = editDate;
         if (Object.keys(updates).length > 0) await updateDoc(ref, updates);
       } catch {
-        // offline
+        setReminders((prev) =>
+          prev.map((r) =>
+            r.id === id ? { ...r, text: prevText ?? r.text, date: prevDate ?? r.date } : r
+          )
+        );
+        toast.error("Failed to save changes. Check your connection and try again.");
       }
     },
-    [profile?.uid, editText, editDate]
+    [profile?.uid, editText, editDate, reminders]
   );
 
   const daysInMonth = getDaysInMonth(viewMonth.year, viewMonth.month);
@@ -273,13 +374,74 @@ export default function CalendarGrid() {
 
   return (
     <div className="space-y-4">
+      {/* Add reminder */}
+      <form onSubmit={addReminder} className="flex flex-wrap gap-2 items-center">
+        <input
+          placeholder={
+            !canAddReminder(profile?.plan ?? "free", totalRemindersCount)
+              ? `Limit reached (${getRemindersLimit(profile?.plan ?? "free")} reminders)`
+              : "Add a reminder..."
+          }
+          value={newText}
+          onChange={(e) => setNewText(e.target.value)}
+          disabled={!canAddReminder(profile?.plan ?? "free", totalRemindersCount)}
+          className="flex-1 min-w-[140px] px-4 py-2.5 rounded-xl border bg-surface text-neutral-dark placeholder:text-neutral-dark/40 border-primary-light/50 focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-50"
+        />
+        <DatePicker
+          value={newDate}
+          onChange={setNewDate}
+          placeholder="Date"
+          size="sm"
+        />
+        <CategorySelector
+          categories={categories}
+          value={newCategoryId}
+          onChange={setNewCategoryId}
+          onAddCategory={() => {
+            if (canAddCategory(profile?.plan ?? "free", categories.length)) {
+              setShowAddCategory(true);
+            } else {
+              setShowPlansModal(true);
+            }
+          }}
+          canAddCategory={canAddCategory(profile?.plan ?? "free", categories.length)}
+          categoriesLimit={getCategoriesLimit(profile?.plan ?? "free")}
+        />
+        <ClickSpark sparkColor="#7FAF8F" sparkSize={8} sparkRadius={14} className="inline-flex">
+          <button
+            type={canAddReminder(profile?.plan ?? "free", totalRemindersCount) ? "submit" : "button"}
+            disabled={!newText.trim() && canAddReminder(profile?.plan ?? "free", totalRemindersCount)}
+            onClick={
+              !canAddReminder(profile?.plan ?? "free", totalRemindersCount)
+                ? () => setShowPlansModal(true)
+                : undefined
+            }
+            className="p-2.5 rounded-xl bg-primary text-white hover:bg-primary/90 disabled:opacity-40 transition-colors"
+          >
+            <Plus size={18} />
+          </button>
+        </ClickSpark>
+      </form>
+
+      <PlansModal
+        open={showPlansModal}
+        onClose={() => setShowPlansModal(false)}
+        currentPlan={profile?.plan ?? "free"}
+      />
+
+      <AddCategoryModal
+        open={showAddCategory}
+        onClose={() => setShowAddCategory(false)}
+        onAdd={addCategory}
+      />
+
       {/* Month nav + filter */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1">
           <ClickSpark sparkColor="#7FAF8F" sparkSize={8} sparkRadius={14} className="inline-flex">
           <button
             onClick={prevMonth}
-            className="p-2 rounded-lg hover:bg-white text-neutral-dark/50 cursor-pointer"
+            className="p-2 rounded-lg hover:bg-surface text-neutral-dark/50 cursor-pointer"
             style={{ transition: "transform 500ms cubic-bezier(0.25, 0.1, 0.25, 1)" }}
             onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.15)"; }}
             onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
@@ -293,7 +455,7 @@ export default function CalendarGrid() {
           <ClickSpark sparkColor="#7FAF8F" sparkSize={8} sparkRadius={14} className="inline-flex">
           <button
             onClick={nextMonth}
-            className="p-2 rounded-lg hover:bg-white text-neutral-dark/50 cursor-pointer"
+            className="p-2 rounded-lg hover:bg-surface text-neutral-dark/50 cursor-pointer"
             style={{ transition: "transform 500ms cubic-bezier(0.25, 0.1, 0.25, 1)" }}
             onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.15)"; }}
             onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
@@ -352,7 +514,7 @@ export default function CalendarGrid() {
                 className={`
                   relative flex rounded-xl p-3 min-h-[90px] cursor-pointer
                   border-2 origin-center
-                  ${isToday ? "border-primary bg-primary/5" : "border-primary-light/30 bg-white"}
+                  ${isToday ? "border-primary bg-primary/5" : "border-primary-light/30 bg-surface"}
                   ${isHovered ? "border-primary-light/50" : ""}
                 `}
               >
@@ -397,7 +559,7 @@ export default function CalendarGrid() {
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: 6, scale: 0.97 }}
                   transition={{ duration: 0.45, ease: [0.25, 0.1, 0.25, 1] }}
-                  className="absolute z-30 top-full mt-1 left-1/2 -translate-x-1/2 w-64 bg-white rounded-2xl shadow-xl border border-primary-light/30 p-4"
+                  className="absolute z-30 top-full mt-1 left-1/2 -translate-x-1/2 w-64 bg-surface rounded-2xl shadow-xl border border-primary-light/30 p-4"
                   onMouseEnter={() => showPopup(dateStr)}
                   onMouseLeave={() => hidePopup(0)}
                 >
@@ -408,11 +570,25 @@ export default function CalendarGrid() {
                   </div>
 
                   {rems.length === 0 ? (
-                    <p className="text-xs text-neutral-dark/40">
-                      {isPast(dateStr)
-                        ? "No tasks recorded"
-                        : "No reminders set"}
-                    </p>
+                    <div className="space-y-1">
+                      <p className="text-xs text-neutral-dark/40">
+                        {isPast(dateStr)
+                          ? "No tasks recorded"
+                          : "No reminders set"}
+                      </p>
+                      {!isPast(dateStr) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setNewDate(dateStr);
+                            setHoveredDate(null);
+                          }}
+                          className="text-xs text-primary font-medium hover:underline"
+                        >
+                          + Add reminder
+                        </button>
+                      )}
+                    </div>
                   ) : (
                     <div className="max-h-48 overflow-y-auto">
                       <div className="flex flex-col gap-2">
@@ -442,22 +618,11 @@ export default function CalendarGrid() {
                                 className="text-xs py-1"
                               />
                               <div className="flex items-center gap-2">
-                                <ClickSpark sparkColor="#7FAF8F" sparkSize={6} sparkRadius={10} className="inline-flex">
-                                <button
-                                  onClick={() => {
-                                    setEditingId(r.id);
-                                    setEditDate(r.date);
-                                  }}
-                                  className="text-neutral-dark/40 hover:text-primary cursor-pointer"
-                                >
-                                  <CalendarDays size={12} />
-                                </button>
-                                </ClickSpark>
-                                <Input
-                                  type="date"
+                                <DatePicker
                                   value={editDate}
-                                  onChange={(e) => setEditDate(e.target.value)}
-                                  className="text-xs py-1 w-28"
+                                  onChange={setEditDate}
+                                  placeholder="Date"
+                                  size="sm"
                                 />
                               </div>
                               <div className="flex gap-1">

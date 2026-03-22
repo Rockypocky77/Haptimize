@@ -1,6 +1,7 @@
 "use client";
 
 import { Check, Trash2 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import ClickSpark from "@/components/ui/ClickSpark";
 
 interface HabitItemProps {
@@ -25,7 +26,7 @@ export default function HabitItem({
         ${completed ? "bg-primary/5" : "bg-neutral-light/60 hover:bg-neutral-light"}
       `}
       style={{
-        transition: "transform 500ms cubic-bezier(0.25, 0.1, 0.25, 1), background-color 150ms ease",
+        transition: "transform 500ms cubic-bezier(0.25, 0.1, 0.25, 1), background-color 300ms ease",
       }}
       onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.015)"; }}
       onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
@@ -35,7 +36,7 @@ export default function HabitItem({
         onClick={() => onToggle(id)}
         className={`
           w-6 h-6 rounded-lg border-2 flex items-center justify-center flex-shrink-0 cursor-pointer
-          transition-all duration-150
+          transition-all duration-200
           ${
             completed
               ? "bg-primary border-primary text-white"
@@ -43,11 +44,23 @@ export default function HabitItem({
           }
         `}
       >
-        {completed && <Check size={14} strokeWidth={3} />}
+        <AnimatePresence mode="wait">
+          {completed && (
+            <motion.span
+              key="check"
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 500, damping: 25 }}
+            >
+              <Check size={14} strokeWidth={3} />
+            </motion.span>
+          )}
+        </AnimatePresence>
       </button>
       </ClickSpark>
       <span
-        className={`flex-1 min-w-0 text-sm ${
+        className={`flex-1 min-w-0 text-sm transition-all duration-300 ${
           completed
             ? "text-neutral-dark/40 line-through"
             : "text-neutral-dark/80"

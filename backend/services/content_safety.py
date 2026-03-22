@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import html
 import logging
 import re
 
@@ -32,7 +31,9 @@ def check_prompt_injection(text: str) -> bool:
 
 
 def sanitize_text(text: str) -> str:
-    text = html.escape(text)
+    # Strip dangerous HTML/script content; do NOT html.escape - the frontend
+    # renders as plain text and React escapes HTML safely. Escaping here caused
+    # apostrophes to display as &#x27; etc.
     text = re.sub(r"<script[^>]*>.*?</script>", "", text, flags=re.IGNORECASE | re.DOTALL)
     text = re.sub(r"<[^>]+>", "", text)
     text = re.sub(r"javascript:", "", text, flags=re.IGNORECASE)

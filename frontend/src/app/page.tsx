@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Button from "@/components/ui/Button";
 import { useAuth } from "@/contexts/AuthContext";
@@ -11,7 +10,6 @@ import WindGust from "@/components/landing/WindGust";
 import AnimatedTextCycle from "@/components/ui/animated-text-cycle";
 
 export default function LandingPage() {
-  const router = useRouter();
   const { user, loading, signInAnonymously } = useAuth();
   const { startTransition, endTransition } = useTransition();
 

@@ -56,7 +56,7 @@ export default function DemoGate({ children }: { children: React.ReactNode }) {
               onClick={() => setShowModal(false)}
             />
             <motion.div
-              className="relative z-10 w-full max-w-sm bg-white rounded-2xl shadow-xl p-8 text-center"
+              className="relative z-10 w-full max-w-sm bg-surface rounded-2xl shadow-xl p-8 text-center"
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}

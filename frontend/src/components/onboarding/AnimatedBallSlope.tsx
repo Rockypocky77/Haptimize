@@ -34,6 +34,7 @@ export default function AnimatedBallSlope({
   const frameRef = useRef(0);
   const t0Ref = useRef(0);
   const prevRef = useRef(0);
+  const tickRef = useRef<(now: number) => void>(() => {});
 
   useEffect(() => {
     const id = setTimeout(() => setPhase("tilt"), 2500);
@@ -76,17 +77,22 @@ export default function AnimatedBallSlope({
         return;
       }
 
-      frameRef.current = requestAnimationFrame(tick);
+      frameRef.current = requestAnimationFrame((t) => tickRef.current(t));
     },
     [onComplete],
   );
 
   useEffect(() => {
+    tickRef.current = tick;
+  }, [tick]);
+
+  useEffect(() => {
     if (phase === "tilt") {
       t0Ref.current = 0;
       prevRef.current = 0;
-      frameRef.current = requestAnimationFrame(tick);
-      return () => cancelAnimationFrame(frameRef.current);
+      const frameId = requestAnimationFrame(tick);
+      frameRef.current = frameId;
+      return () => cancelAnimationFrame(frameId);
     }
   }, [phase, tick]);
 
@@ -211,7 +217,7 @@ export default function AnimatedBallSlope({
             className="text-2xl md:text-3xl font-bold text-neutral-dark"
           />
           <BlurText
-            text="Use momentum to your advantage."
+            text="Use momentum to your advantage. Your Momentum Score tracks this over time."
             delay={100}
             animateBy="words"
             direction="bottom"
