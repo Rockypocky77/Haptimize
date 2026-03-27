@@ -69,7 +69,8 @@ const TREND_DAYS = 14;
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 function CompletionTrendChart({ logs }: { logs: HabitLog[] }) {
-  const recentLogs = logs.slice(-TREND_DAYS);
+  const todayStr = getLocalDateString();
+  const recentLogs = logs.filter((l) => l.date !== todayStr).slice(-TREND_DAYS);
   if (recentLogs.length < 2) return null;
 
   const W = 480;

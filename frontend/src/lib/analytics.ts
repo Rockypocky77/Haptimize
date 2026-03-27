@@ -20,6 +20,16 @@ function toLocalDateString(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
+/** Parse YYYY-MM-DD as a local calendar date (avoids UTC midnight shifting the day). */
+function parseYmdLocal(ymd: string): Date {
+  const parts = ymd.split("-").map(Number);
+  if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) {
+    return new Date();
+  }
+  const [y, m, d] = parts;
+  return new Date(y, m - 1, d);
+}
+
 /**
  * Fills in missing days in a date range with 0% completion.
  * Use when displaying charts/analytics so days the app wasn't opened show as 0, not omitted.
@@ -33,7 +43,7 @@ export function fillLogsWithMissingDays(
   const end = endDate ?? toLocalDateString(new Date());
   const logByDate = new Map(logs.map((l) => [l.date, l]));
   const result: HabitLog[] = [];
-  const d = new Date(end);
+  const d = parseYmdLocal(end);
   for (let i = 0; i < daysBack; i++) {
     const dateStr = toLocalDateString(d);
     const existing = logByDate.get(dateStr);
