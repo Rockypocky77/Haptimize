@@ -14,6 +14,7 @@ import {
   deleteDoc,
   serverTimestamp,
 } from "@/lib/firebase/client";
+import { firestoreUserMessage } from "@/lib/firebase/error-message";
 import Input from "@/components/ui/Input";
 import DatePicker from "@/components/ui/DatePicker";
 import Button from "@/components/ui/Button";
@@ -224,25 +225,27 @@ export default function CalendarGrid() {
   const totalRemindersCount = reminders.length + casualCount;
 
   const addCategory = useCallback(
-    async (name: string, color: string) => {
-      if (!guardAction("creating categories")) return;
-      if (!profile?.uid) return;
+    async (name: string, color: string): Promise<boolean> => {
+      if (!guardAction("creating categories")) return false;
+      if (!profile?.uid) return false;
       const plan = profile?.plan ?? "free";
       if (!canAddCategory(plan, categories.length)) {
         setShowPlansModal(true);
-        return;
+        return false;
       }
       const id = `cat_${Date.now()}`;
       const category: Category = { id, name, color };
       setCategories((prev) => [...prev, category]);
       setNewCategoryId(id);
-      if (isDemo) return;
+      if (isDemo) return true;
       try {
         await setDoc(doc(db, "categories", profile.uid, "items", id), { name, color });
-      } catch {
+        return true;
+      } catch (err) {
         setCategories((prev) => prev.filter((c) => c.id !== id));
         setNewCategoryId((prev) => (prev === id ? null : prev));
-        toast.error("Failed to save category. Check your connection and try again.");
+        toast.error(firestoreUserMessage(err));
+        return false;
       }
     },
     [profile?.uid, profile?.plan, categories.length, isDemo, guardAction]

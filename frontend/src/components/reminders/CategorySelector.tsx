@@ -79,7 +79,7 @@ export default function CategorySelector({
   const dropdownContent = open ? (
     <motion.div
       ref={dropdownRef}
-      className="fixed bg-surface rounded-xl border border-primary-light/30 shadow-lg py-1 max-h-56 overflow-y-auto origin-top z-[100]"
+      className="fixed bg-surface rounded-xl border border-primary-light/30 shadow-lg py-1 max-h-56 overflow-y-auto overflow-x-hidden origin-top z-[100] [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
       style={{
         top: dropdownRect.top,
         left: dropdownRect.left,

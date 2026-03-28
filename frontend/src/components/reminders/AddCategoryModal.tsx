@@ -26,7 +26,8 @@ export const CATEGORY_COLORS = [
 interface AddCategoryModalProps {
   open: boolean;
   onClose: () => void;
-  onAdd: (name: string, color: string) => void;
+  /** Return true when the category was saved (or demo OK); false to keep the modal open. */
+  onAdd: (name: string, color: string) => Promise<boolean>;
 }
 
 export default function AddCategoryModal({
@@ -36,19 +37,28 @@ export default function AddCategoryModal({
 }: AddCategoryModalProps) {
   const [name, setName] = useState("");
   const [color, setColor] = useState(CATEGORY_COLORS[0]);
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
-    onAdd(name.trim(), color);
-    setName("");
-    setColor(CATEGORY_COLORS[0]);
-    onClose();
+    if (!name.trim() || submitting) return;
+    setSubmitting(true);
+    try {
+      const ok = await onAdd(name.trim(), color);
+      if (ok) {
+        setName("");
+        setColor(CATEGORY_COLORS[0]);
+        onClose();
+      }
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleClose = () => {
     setName("");
     setColor(CATEGORY_COLORS[0]);
+    setSubmitting(false);
     onClose();
   };
 
@@ -90,8 +100,8 @@ export default function AddCategoryModal({
           <Button type="button" variant="ghost" onClick={handleClose}>
             Cancel
           </Button>
-          <Button type="submit" disabled={!name.trim()}>
-            Add category
+          <Button type="submit" disabled={!name.trim() || submitting}>
+            {submitting ? "Saving…" : "Add category"}
           </Button>
         </div>
       </form>

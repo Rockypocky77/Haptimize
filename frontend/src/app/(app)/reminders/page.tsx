@@ -43,6 +43,7 @@ import ClickSpark from "@/components/ui/ClickSpark";
 import { canAddReminder, canAddCategory, getRemindersLimit, getCategoriesLimit } from "@/lib/plan-limits";
 import PlansModal from "@/components/plans/PlansModal";
 import { getLocalDateString } from "@/lib/date";
+import { firestoreUserMessage } from "@/lib/firebase/error-message";
 
 const UNDO_SECONDS = 5;
 
@@ -242,26 +243,28 @@ export default function RemindersPage() {
   }, [loadReminders]);
 
   const addCategory = useCallback(
-    async (name: string, color: string) => {
-      if (!guardAction("creating categories")) return;
-      if (!profile?.uid) return;
+    async (name: string, color: string): Promise<boolean> => {
+      if (!guardAction("creating categories")) return false;
+      if (!profile?.uid) return false;
       const plan = profile?.plan ?? "free";
       if (!canAddCategory(plan, categories.length)) {
         setShowPlansModal(true);
-        return;
+        return false;
       }
       const id = `cat_${Date.now()}`;
       const category: Category = { id, name, color };
       setCategories((prev) => [...prev, category]);
       setNewCategoryId(id);
-      if (isDemo) return;
+      if (isDemo) return true;
       try {
         const ref = doc(db, "categories", profile.uid, "items", id);
         await setDoc(ref, { name, color });
-      } catch {
+        return true;
+      } catch (err) {
         setCategories((prev) => prev.filter((c) => c.id !== id));
         setNewCategoryId((prev) => (prev === id ? null : prev));
-        toast.error("Failed to save category. Check your connection and try again.");
+        toast.error(firestoreUserMessage(err));
+        return false;
       }
     },
     [profile?.uid, profile?.plan, categories.length, isDemo, guardAction]

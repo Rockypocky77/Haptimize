@@ -2,7 +2,7 @@
 
 import { useState, useCallback, createContext, useContext } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth, DEMO_UID } from "@/contexts/AuthContext";
 import { useTransition } from "@/contexts/TransitionContext";
 import { Lock } from "lucide-react";
 import Button from "@/components/ui/Button";
@@ -23,7 +23,8 @@ export default function DemoGate({ children }: { children: React.ReactNode }) {
   const { startTransition } = useTransition();
   const [showModal, setShowModal] = useState(false);
   const [featureLabel, setFeatureLabel] = useState("");
-  const isDemo = user?.isAnonymous === true;
+  /** Only the local shared demo (no Firebase account). Not Firebase anonymous auth. */
+  const isDemo = user?.uid === DEMO_UID;
 
   const guardAction = useCallback(
     (featureName = "this feature") => {
