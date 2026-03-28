@@ -57,7 +57,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           onExpand={() => setSidebarExpanded(true)}
           onCollapse={() => setSidebarExpanded(false)}
         />
-        <main className="p-8 min-h-screen ml-16">
+        <main
+          className={`app-shell-main${profile?.aiEnabled === false ? " app-shell-main--compact-bottom" : ""}`}
+        >
           {children}
         </main>
         {profile?.aiEnabled !== false && <HaptiAiDock />}

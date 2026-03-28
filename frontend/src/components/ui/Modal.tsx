@@ -35,7 +35,7 @@ export default function Modal({ open, onClose, children, title }: ModalProps) {
   const modalContent = (
     <AnimatePresence>
       {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
           <motion.div
             className="absolute inset-0 bg-neutral-dark/40 backdrop-blur-sm"
             initial={{ opacity: 0 }}
@@ -45,7 +45,7 @@ export default function Modal({ open, onClose, children, title }: ModalProps) {
             onClick={onClose}
           />
           <motion.div
-            className="relative z-10 bg-surface rounded-2xl shadow-xl max-w-md w-full mx-4 p-6"
+            className="relative z-10 flex max-h-[min(90dvh,720px)] w-full max-w-md flex-col overflow-hidden rounded-2xl bg-surface p-6 shadow-xl"
             initial={{ opacity: 0, scale: 0.92, y: 16 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 8 }}
@@ -64,7 +64,7 @@ export default function Modal({ open, onClose, children, title }: ModalProps) {
                 </button>
               </ClickSpark>
             </div>
-            {children}
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">{children}</div>
           </motion.div>
         </div>
       )}

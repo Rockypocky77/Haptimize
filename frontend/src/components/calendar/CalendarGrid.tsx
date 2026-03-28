@@ -73,6 +73,7 @@ export default function CalendarGrid() {
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
   const [hoveredDate, setHoveredDate] = useState<string | null>(null);
   const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const coarsePointerRef = useRef(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [editDate, setEditDate] = useState("");
@@ -388,10 +389,23 @@ export default function CalendarGrid() {
     if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current);
   }, []);
 
+  useEffect(() => {
+    const mq = window.matchMedia("(hover: none)");
+    const sync = () => {
+      coarsePointerRef.current = mq.matches;
+    };
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+
   return (
     <div className="space-y-4">
       {/* Add reminder */}
-      <form onSubmit={addReminder} className="flex flex-wrap gap-2 items-center">
+      <form
+        onSubmit={addReminder}
+        className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2"
+      >
         <input
           placeholder={
             !canAddReminder(profile?.plan ?? "free", totalRemindersCount)
@@ -452,8 +466,8 @@ export default function CalendarGrid() {
       />
 
       {/* Month nav + filter */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center justify-center gap-1 sm:justify-start">
           <ClickSpark sparkColor="#7FAF8F" sparkSize={8} sparkRadius={14} className="inline-flex">
           <button
             onClick={prevMonth}
@@ -481,20 +495,22 @@ export default function CalendarGrid() {
           </ClickSpark>
         </div>
         {categories.length > 0 && (
-          <CategoryFilter
-            categories={categories}
-            value={categoryFilter}
-            onChange={setCategoryFilter}
-          />
+          <div className="flex justify-center sm:justify-end">
+            <CategoryFilter
+              categories={categories}
+              value={categoryFilter}
+              onChange={setCategoryFilter}
+            />
+          </div>
         )}
       </div>
 
       {/* Day headers */}
-      <div className="grid grid-cols-7 gap-2">
+      <div className="grid grid-cols-7 gap-1 sm:gap-2">
         {DAY_HEADERS.map((d) => (
           <div
             key={d}
-            className="text-center text-sm font-medium text-neutral-dark/40 py-3"
+            className="py-2 text-center text-[11px] font-medium text-neutral-dark/40 sm:py-3 sm:text-sm"
           >
             {d}
           </div>
@@ -502,7 +518,7 @@ export default function CalendarGrid() {
       </div>
 
       {/* Calendar cells */}
-      <div className="grid grid-cols-7 gap-2">
+      <div className="grid grid-cols-7 gap-1 sm:gap-2">
         {Array.from({ length: firstDay }, (_, i) => (
           <div key={`empty-${i}`} />
         ))}
@@ -520,6 +536,11 @@ export default function CalendarGrid() {
               className="relative"
               onMouseEnter={() => showPopup(dateStr)}
               onMouseLeave={() => hidePopup(80)}
+              onClick={() => {
+                if (coarsePointerRef.current) {
+                  setHoveredDate((h) => (h === dateStr ? null : dateStr));
+                }
+              }}
             >
               <div
                 style={{
@@ -528,15 +549,14 @@ export default function CalendarGrid() {
                   transition: "transform 500ms cubic-bezier(0.25, 0.1, 0.25, 1), box-shadow 500ms cubic-bezier(0.25, 0.1, 0.25, 1), border-color 500ms ease",
                 }}
                 className={`
-                  relative flex rounded-xl p-3 min-h-[90px] cursor-pointer
-                  border-2 origin-center transition-[transform,box-shadow,border-color] duration-500
+                  relative flex min-h-[4.5rem] cursor-pointer rounded-lg border-2 p-2 origin-center transition-[transform,box-shadow,border-color] duration-500 sm:min-h-[5.625rem] sm:rounded-xl sm:p-3
                   ${isToday ? "border-primary bg-primary/5" : "border-primary-light/30 bg-surface"}
-                  ${isHovered ? "border-primary/50 ring-2 ring-primary/35 ring-offset-2 ring-offset-neutral-light" : ""}
+                  ${isHovered ? "border-primary/50 ring-2 ring-primary/35 ring-offset-1 ring-offset-neutral-light sm:ring-offset-2" : ""}
                 `}
               >
                 <div className="flex-1 min-w-0">
                   <span
-                    className={`text-sm font-medium ${
+                    className={`text-xs font-medium sm:text-sm ${
                       isToday ? "text-primary" : "text-neutral-dark/60"
                     }`}
                   >
@@ -575,7 +595,7 @@ export default function CalendarGrid() {
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: 6, scale: 0.97 }}
                   transition={{ duration: 0.45, ease: [0.25, 0.1, 0.25, 1] }}
-                  className="absolute z-30 top-full mt-1 left-1/2 -translate-x-1/2 w-64 bg-surface rounded-2xl shadow-xl border border-primary-light/30 p-4"
+                  className="absolute z-30 top-full mt-1 left-1/2 w-[min(100vw-1rem,16rem)] max-w-[calc(100vw-1rem)] -translate-x-1/2 rounded-2xl border border-primary-light/30 bg-surface p-4 shadow-xl sm:w-64"
                   onMouseEnter={() => showPopup(dateStr)}
                   onMouseLeave={() => hidePopup(0)}
                 >

@@ -28,7 +28,7 @@ export default function OnboardingStep({
 }: OnboardingStepProps) {
   /* Outer fade handled by onboarding page — avoid double opacity stacking */
   return (
-    <div className="min-h-screen w-full flex flex-col items-center justify-center px-6 py-12">
+    <div className="min-h-[100dvh] w-full flex flex-col items-center justify-center px-4 pt-[max(2.5rem,env(safe-area-inset-top))] pb-[max(3rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-12">
       <div className={`flex-1 flex flex-col items-center justify-center w-full ${wide ? "max-w-5xl" : "max-w-2xl"}`}>
         {children}
       </div>

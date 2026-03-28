@@ -452,7 +452,7 @@ export default function HaptiAiDock() {
       <AnimatePresence>
         {!open && (
           <motion.div
-            className="fixed bottom-6 right-6 w-14 h-14 z-50"
+            className="fixed z-50 h-14 w-14 bottom-[max(1.5rem,env(safe-area-inset-bottom,0px))] right-[max(1.5rem,env(safe-area-inset-right,0px))] sm:bottom-6 sm:right-6"
             initial={{ scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0, opacity: 0 }}
@@ -474,7 +474,7 @@ export default function HaptiAiDock() {
       <AnimatePresence>
         {open && (
           <motion.div
-            className="fixed bottom-6 right-6 w-96 h-[500px] bg-surface rounded-2xl shadow-2xl border border-primary-light/30 flex flex-col z-50 overflow-hidden"
+            className="fixed z-50 flex h-[min(32rem,72dvh)] w-[min(calc(100vw-1.5rem),24rem)] flex-col overflow-hidden rounded-2xl border border-primary-light/30 bg-surface shadow-2xl bottom-[max(1.25rem,env(safe-area-inset-bottom,0px))] right-[max(1.25rem,env(safe-area-inset-right,0px))] sm:bottom-6 sm:right-6 sm:h-[500px] sm:w-96"
             initial={{ opacity: 0, y: 40, scale: 0.92 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 40, scale: 0.92 }}

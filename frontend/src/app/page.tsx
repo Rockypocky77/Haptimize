@@ -133,12 +133,12 @@ export default function LandingPage() {
           <br />
           <span className="text-primary">Win Tomorrow&hellip;</span>
         </h1>
-        <p className="text-lg text-neutral-dark/90 text-center mt-3 max-w-md">
+        <p className="text-base sm:text-lg text-neutral-dark/90 text-center mt-3 max-w-md px-1">
           Let consistency turn small wins into massive results.
         </p>
-        <div className="ui-hover-lift w-full max-w-lg mt-8 p-6 rounded-2xl bg-white/40 backdrop-blur-xl border border-white/70">
+        <div className="ui-hover-lift w-full max-w-lg mt-8 p-5 sm:p-6 rounded-2xl bg-white/40 backdrop-blur-xl border border-white/70">
           <p className="text-sm text-neutral-dark/60 mb-1 text-center">With Haptimize,</p>
-          <h2 className="text-2xl font-light text-center text-neutral-dark/80 mb-8 ml-[15px] whitespace-nowrap">
+          <h2 className="text-xl sm:text-2xl font-light text-center text-neutral-dark/80 mb-8 leading-snug px-1">
             Improve your{" "}
             <AnimatedTextCycle
               words={[
