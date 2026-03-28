@@ -188,25 +188,31 @@ export default function OnboardingPage() {
                     <li className="flex gap-2">
                       <span className="text-primary font-bold shrink-0">·</span>
                       <span>
-                        <strong className="text-neutral-dark">Home</strong> — daily progress, streaks, and reminders at a glance.
+                        <strong className="text-neutral-dark">Home</strong> — today&apos;s habit ring, analytics, recap (Pro/Max), streak, reminder preview, and habits still due.
                       </span>
                     </li>
                     <li className="flex gap-2">
                       <span className="text-primary font-bold shrink-0">·</span>
                       <span>
-                        <strong className="text-neutral-dark">Calendar</strong> — dated tasks on a month view; drag and organize by day.
+                        <strong className="text-neutral-dark">Checklist</strong> — build habits and check them off; progress feeds the ring on Home.
                       </span>
                     </li>
                     <li className="flex gap-2">
                       <span className="text-primary font-bold shrink-0">·</span>
                       <span>
-                        <strong className="text-neutral-dark">Reminders</strong> — casual quick list or dated items with color categories.
+                        <strong className="text-neutral-dark">Reminders</strong> — casual list or dated reminders; optional color categories.
                       </span>
                     </li>
                     <li className="flex gap-2">
                       <span className="text-primary font-bold shrink-0">·</span>
                       <span>
-                        <strong className="text-neutral-dark">Hapti AI</strong> — add reminders, move calendar items, and create habits from chat.
+                        <strong className="text-neutral-dark">Calendar</strong> — month view of dated reminders (separate from Home).
+                      </span>
+                    </li>
+                    <li className="flex gap-2">
+                      <span className="text-primary font-bold shrink-0">·</span>
+                      <span>
+                        <strong className="text-neutral-dark">Hapti AI</strong> — chat to add reminders, adjust dated items, and create habits (when enabled).
                       </span>
                     </li>
                   </ul>
