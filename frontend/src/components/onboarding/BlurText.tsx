@@ -40,9 +40,9 @@ export default function BlurText({
   rootMargin = "0px",
   animationFrom,
   animationTo,
-  easing = (t: number) => t,
+  easing,
   onAnimationComplete,
-  stepDuration = 0.35,
+  stepDuration = 0.42,
 }: BlurTextProps) {
   const elements = animateBy === "words" ? text.split(" ") : text.split("");
   const [inView, setInView] = useState(false);
@@ -63,17 +63,18 @@ export default function BlurText({
     return () => observer.disconnect();
   }, [threshold, rootMargin]);
 
+  /* Lighter blur + smaller travel = less GPU jank, smoother read */
   const defaultFrom = useMemo(
     () =>
       direction === "top"
-        ? { filter: "blur(10px)", opacity: 0, y: -50 }
-        : { filter: "blur(10px)", opacity: 0, y: 50 },
+        ? { filter: "blur(5px)", opacity: 0, y: -14 }
+        : { filter: "blur(5px)", opacity: 0, y: 14 },
     [direction]
   );
 
   const defaultTo = useMemo(
     () => [
-      { filter: "blur(5px)", opacity: 0.5, y: direction === "top" ? 5 : -5 },
+      { filter: "blur(1.5px)", opacity: 0.72, y: direction === "top" ? 2 : -2 },
       { filter: "blur(0px)", opacity: 1, y: 0 },
     ],
     [direction]
@@ -96,7 +97,10 @@ export default function BlurText({
           duration: totalDuration,
           times,
           delay: (index * delay) / 1000,
-          ease: easing,
+          ease:
+            typeof easing === "function"
+              ? easing
+              : ([0.22, 1, 0.36, 1] as const),
         };
 
         return (

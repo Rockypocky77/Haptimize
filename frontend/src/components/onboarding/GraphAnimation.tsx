@@ -64,14 +64,14 @@ export default function GraphAnimation() {
         className="relative mx-auto max-w-md"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 1, duration: 0.8, ease: [0.25, 0.1, 0.25, 1] }}
+        transition={{ delay: 1, duration: 0.85, ease: [0.22, 1, 0.36, 1] }}
       >
         <div className="relative rounded-2xl bg-white/80 border border-gray-200/50 p-5 overflow-hidden shadow-sm">
           <motion.div
             className="absolute inset-0 rounded-2xl pointer-events-none"
             initial={{ opacity: 0 }}
             animate={{ opacity: [0, 0.5, 0] }}
-            transition={{ delay: 2, duration: 2.5, ease: "easeInOut" }}
+            transition={{ delay: 2, duration: 2.6, ease: [0.45, 0, 0.55, 1] }}
             style={{
               background: "radial-gradient(ellipse 80% 50% at 70% 30%, rgba(127,175,143,0.25), transparent 70%)",
             }}
@@ -93,7 +93,7 @@ export default function GraphAnimation() {
               fill="url(#curveGrad)"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ delay: 1.3, duration: 1.2 }}
+              transition={{ delay: 1.3, duration: 1.25, ease: [0.22, 1, 0.36, 1] }}
             />
             <motion.path
               d={pathD}
@@ -112,17 +112,23 @@ export default function GraphAnimation() {
         </div>
       </motion.div>
 
-      {showSubtext && (
+      <div className="min-h-[52px] flex items-center justify-center">
         <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: [0.25, 0.1, 0.25, 1] }}
+          initial={false}
+          animate={
+            showSubtext
+              ? { opacity: 1, y: 0 }
+              : { opacity: 0, y: 6 }
+          }
+          transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+          className="pointer-events-none"
+          aria-hidden={!showSubtext}
         >
           <TextShimmer className="text-xl font-semibold [--base-color:#4a8a5e] [--base-gradient-color:#2E3A3F]" duration={3}>
             Consistency is everything.
           </TextShimmer>
         </motion.div>
-      )}
+      </div>
     </div>
   );
 }

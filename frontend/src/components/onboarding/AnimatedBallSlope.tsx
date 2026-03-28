@@ -22,9 +22,12 @@ export default function AnimatedBallSlope({
   onComplete: () => void;
 }) {
   const [phase, setPhase] = useState<Phase>("effort");
-  const [angle, setAngle] = useState(0);
-  const [ballS, setBallS] = useState(0.07);
-  const [ballRot, setBallRot] = useState(0);
+  /** Single state per frame — avoids triple setState churn during rAF */
+  const [visual, setVisual] = useState({
+    angle: 0,
+    ballS: 0.07,
+    ballRot: 0,
+  });
   const [ballGone, setBallGone] = useState(false);
 
   const angleRef = useRef(0);
@@ -55,7 +58,6 @@ export default function AnimatedBallSlope({
       const progress = Math.min(elapsed / TILT_DURATION, 1);
       const eased = progress * progress;
       angleRef.current = eased * MAX_ANGLE;
-      setAngle(angleRef.current);
 
       const rad = (angleRef.current * Math.PI) / 180;
       const gForce = GRAVITY * Math.sin(rad);
@@ -64,11 +66,15 @@ export default function AnimatedBallSlope({
 
       vRef.current += net * dt;
       sRef.current += vRef.current * dt;
-      setBallS(sRef.current);
 
       const pxPerSec = vRef.current * LEN;
       rotRef.current += ((pxPerSec * dt) / (2 * Math.PI * BALL_R)) * 360;
-      setBallRot(rotRef.current);
+
+      setVisual({
+        angle: angleRef.current,
+        ballS: sRef.current,
+        ballRot: rotRef.current,
+      });
 
       if (sRef.current > 1.15) {
         setBallGone(true);
@@ -96,6 +102,7 @@ export default function AnimatedBallSlope({
     }
   }, [phase, tick]);
 
+  const { angle, ballS, ballRot } = visual;
   const rad = (angle * Math.PI) / 180;
   const cosA = Math.cos(rad);
   const sinA = Math.sin(rad);
@@ -108,17 +115,21 @@ export default function AnimatedBallSlope({
   const ballCx = ptX + BALL_R * sinA;
   const ballCy = ptY - BALL_R * cosA;
 
+  const phaseEase = [0.22, 1, 0.36, 1] as const;
+
   return (
     <div className="text-center space-y-8 w-full max-w-xl mx-auto">
-      <div className="min-h-[80px]">
-        <AnimatePresence mode="wait">
+      {/* Fixed caption height — crossfade phases without layout jump */}
+      <div className="relative min-h-[92px] flex items-center justify-center">
+        <AnimatePresence mode="sync">
           {phase === "effort" && (
             <motion.div
               key="effort"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.5 }}
+              className="absolute inset-x-0 top-0"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.4, ease: phaseEase }}
             >
               <BlurText
                 text="Getting started takes effort."
@@ -132,10 +143,11 @@ export default function AnimatedBallSlope({
           {phase === "tilt" && (
             <motion.div
               key="tilt"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.5 }}
+              className="absolute inset-x-0 top-0"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.4, ease: phaseEase }}
             >
               <BlurText
                 text="But once you start..."
@@ -174,57 +186,68 @@ export default function AnimatedBallSlope({
             strokeLinecap="round"
           />
 
-          {!ballGone && (
-            <>
-              <circle
-                cx={ballCx + 1.5}
-                cy={ballCy + 2.5}
-                r={BALL_R}
-                fill="rgba(0,0,0,0.07)"
-              />
-              <g
-                transform={`translate(${ballCx}, ${ballCy}) rotate(${ballRot})`}
+          <AnimatePresence>
+            {!ballGone && (
+              <motion.g
+                key="ball"
+                initial={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.28, ease: phaseEase }}
               >
-                <circle r={BALL_R} fill="#2d6a42" />
-                <circle cx={-3} cy={-3} r={3.5} fill="rgba(255,255,255,0.2)" />
-                <line
-                  x1={0}
-                  y1={-BALL_R + 3}
-                  x2={0}
-                  y2={-BALL_R + 7}
-                  stroke="rgba(255,255,255,0.18)"
-                  strokeWidth="2"
-                  strokeLinecap="round"
+                <circle
+                  cx={ballCx + 1.5}
+                  cy={ballCy + 2.5}
+                  r={BALL_R}
+                  fill="rgba(0,0,0,0.07)"
                 />
-              </g>
-            </>
-          )}
+                <g transform={`translate(${ballCx}, ${ballCy}) rotate(${ballRot})`}>
+                  <circle r={BALL_R} fill="#2d6a42" />
+                  <circle cx={-3} cy={-3} r={3.5} fill="rgba(255,255,255,0.2)" />
+                  <line
+                    x1={0}
+                    y1={-BALL_R + 3}
+                    x2={0}
+                    y2={-BALL_R + 7}
+                    stroke="rgba(255,255,255,0.18)"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                  />
+                </g>
+              </motion.g>
+            )}
+          </AnimatePresence>
         </svg>
       </div>
 
-      {phase === "result" && (
-        <motion.div
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, ease: [0.25, 0.1, 0.25, 1] }}
-          className="space-y-3"
-        >
-          <BlurText
-            text="You can't stop."
-            delay={120}
-            animateBy="words"
-            direction="bottom"
-            className="text-2xl md:text-3xl font-bold text-neutral-dark"
-          />
-          <BlurText
-            text="Use momentum to your advantage. Your Momentum Score tracks this over time."
-            delay={100}
-            animateBy="words"
-            direction="bottom"
-            className="text-lg text-neutral-dark/70 font-medium"
-          />
-        </motion.div>
-      )}
+      <div className="min-h-[120px]">
+        <AnimatePresence>
+          {phase === "result" && (
+            <motion.div
+              key="result"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.55, ease: [0.25, 0.1, 0.25, 1] }}
+              className="space-y-3"
+            >
+              <BlurText
+                text="You can't stop."
+                delay={120}
+                animateBy="words"
+                direction="bottom"
+                className="text-2xl md:text-3xl font-bold text-neutral-dark"
+              />
+              <BlurText
+                text="Use momentum to your advantage. Your Momentum Score and analytics show how consistency compounds."
+                delay={100}
+                animateBy="words"
+                direction="bottom"
+                className="text-lg text-neutral-dark/70 font-medium"
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   );
 }

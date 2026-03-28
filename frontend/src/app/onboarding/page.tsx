@@ -13,6 +13,7 @@ import DashboardPreview from "@/components/onboarding/DashboardPreview";
 import HaptiAiOnboardingStep from "@/components/onboarding/HaptiAiOnboardingStep";
 import BlurText from "@/components/onboarding/BlurText";
 import { TextShimmer } from "@/components/onboarding/TextShimmer";
+import { ONBOARD_EASE_OUT, stepPresenceTransition } from "@/lib/onboarding-motion";
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -65,91 +66,169 @@ export default function OnboardingPage() {
   if (loading || !user) return null;
 
   return (
-    <div className="min-h-screen bg-neutral-light overflow-hidden">
-      {/* Progress bar */}
-      <motion.div
-        className="fixed top-0 left-0 h-1 bg-primary z-50"
-        initial={{ width: "0%" }}
-        animate={{ width: `${((step + 1) / 6) * 100}%` }}
-        transition={{ duration: 0.5, ease: [0.25, 0.1, 0.25, 1] }}
-      />
+    <div className="min-h-[100dvh] bg-neutral-light overflow-x-hidden">
+      {/* Progress bar — scaleX avoids layout thrash from width % */}
+      <div className="fixed top-0 left-0 right-0 h-1 z-50 bg-primary/15">
+        <motion.div
+          className="h-full bg-primary origin-left"
+          style={{ width: "100%" }}
+          initial={{ scaleX: 0 }}
+          animate={{ scaleX: (step + 1) / 6 }}
+          transition={{ duration: 0.58, ease: ONBOARD_EASE_OUT }}
+        />
+      </div>
 
-      <AnimatePresence mode="wait">
-        {step === 0 && (
-          <motion.div key="step0" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.4 }}>
-            <TermsAndPrivacyStep onAgree={next} />
-          </motion.div>
-        )}
-
-        {step === 1 && (
-          <motion.div key="step1" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.4 }}>
-            <OnboardingStep buttonLabel="Next →" onNext={next}>
-              <GraphAnimation />
-            </OnboardingStep>
-          </motion.div>
-        )}
-
-        {step === 2 && (
-          <motion.div key="step2" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.4 }}>
-            <OnboardingStep buttonLabel="Next →" onNext={next} showButton={ballDone}>
-              <AnimatedBallSlope onComplete={onBallComplete} />
-            </OnboardingStep>
-          </motion.div>
-        )}
-
-        {step === 3 && (
-          <motion.div key="step3" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.4 }}>
-            <OnboardingStep buttonLabel="Next →" onNext={next} showButton={dashboardDone}>
-              <DashboardPreview onComplete={onDashboardComplete} />
-            </OnboardingStep>
-          </motion.div>
-        )}
-
-        {step === 4 && (
-          <motion.div key="step4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.4 }}>
-            <OnboardingStep buttonLabel="Next →" onNext={next} showButton={aiDone} wide>
-              <HaptiAiOnboardingStep onComplete={onAiComplete} />
-            </OnboardingStep>
-          </motion.div>
-        )}
-
-        {step === 5 && (
-          <motion.div key="step5" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.4 }}>
-            <OnboardingStep
-              buttonLabel="Create your system →"
-              onNext={handleFinish}
-              secondaryButtonLabel="Replay onboarding"
-              onSecondaryClick={replayOnboarding}
+      {/* Overlapping steps + sync crossfade avoids wait-mode pop between screens */}
+      <div className="relative min-h-[100dvh] w-full">
+        <AnimatePresence mode="sync">
+          {step === 0 && (
+            <motion.div
+              key="step0"
+              className="absolute inset-0 z-10 overflow-y-auto overflow-x-hidden bg-neutral-light"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 6 }}
+              transition={stepPresenceTransition}
             >
-              <div className="text-center space-y-6">
-                <BlurText
-                  text="Small changes."
-                  delay={150}
-                  animateBy="words"
-                  direction="top"
-                  className="text-3xl md:text-5xl font-black text-neutral-dark"
-                />
-                <BlurText
-                  text="Massive results."
-                  delay={150}
-                  animateBy="words"
-                  direction="top"
-                  className="text-3xl md:text-5xl font-black text-primary"
-                />
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 1, duration: 0.6 }}
-                >
-                  <TextShimmer className="text-lg font-medium mt-6 [--base-color:#4a8a5e] [--base-gradient-color:#2E3A3F]" duration={3}>
-                    Ready to start improving?
-                  </TextShimmer>
-                </motion.div>
-              </div>
-            </OnboardingStep>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              <TermsAndPrivacyStep onAgree={next} />
+            </motion.div>
+          )}
+
+          {step === 1 && (
+            <motion.div
+              key="step1"
+              className="absolute inset-0 z-10 overflow-x-hidden bg-neutral-light"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 6 }}
+              transition={stepPresenceTransition}
+            >
+              <OnboardingStep buttonLabel="Next →" onNext={next}>
+                <GraphAnimation />
+              </OnboardingStep>
+            </motion.div>
+          )}
+
+          {step === 2 && (
+            <motion.div
+              key="step2"
+              className="absolute inset-0 z-10 overflow-x-hidden bg-neutral-light"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 6 }}
+              transition={stepPresenceTransition}
+            >
+              <OnboardingStep buttonLabel="Next →" onNext={next} showButton={ballDone}>
+                <AnimatedBallSlope onComplete={onBallComplete} />
+              </OnboardingStep>
+            </motion.div>
+          )}
+
+          {step === 3 && (
+            <motion.div
+              key="step3"
+              className="absolute inset-0 z-10 overflow-y-auto overflow-x-hidden bg-neutral-light"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 6 }}
+              transition={stepPresenceTransition}
+            >
+              <OnboardingStep buttonLabel="Next →" onNext={next} showButton={dashboardDone}>
+                <DashboardPreview onComplete={onDashboardComplete} />
+              </OnboardingStep>
+            </motion.div>
+          )}
+
+          {step === 4 && (
+            <motion.div
+              key="step4"
+              className="absolute inset-0 z-10 overflow-y-auto overflow-x-hidden bg-neutral-light"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 6 }}
+              transition={stepPresenceTransition}
+            >
+              <OnboardingStep buttonLabel="Next →" onNext={next} showButton={aiDone} wide>
+                <HaptiAiOnboardingStep onComplete={onAiComplete} />
+              </OnboardingStep>
+            </motion.div>
+          )}
+
+          {step === 5 && (
+            <motion.div
+              key="step5"
+              className="absolute inset-0 z-10 overflow-x-hidden bg-neutral-light"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 6 }}
+              transition={stepPresenceTransition}
+            >
+              <OnboardingStep
+                buttonLabel="Create your system →"
+                onNext={handleFinish}
+                secondaryButtonLabel="Replay onboarding"
+                onSecondaryClick={replayOnboarding}
+              >
+                <div className="text-center space-y-6 max-w-lg mx-auto px-2">
+                  <BlurText
+                    text="Small changes."
+                    delay={150}
+                    animateBy="words"
+                    direction="top"
+                    className="text-3xl md:text-5xl font-black text-neutral-dark"
+                  />
+                  <BlurText
+                    text="Massive results."
+                    delay={150}
+                    animateBy="words"
+                    direction="top"
+                    className="text-3xl md:text-5xl font-black text-primary"
+                  />
+                  <ul className="text-left text-sm text-neutral-dark/70 space-y-2 max-w-sm mx-auto pt-2">
+                    <li className="flex gap-2">
+                      <span className="text-primary font-bold shrink-0">·</span>
+                      <span>
+                        <strong className="text-neutral-dark">Home</strong> — daily progress, streaks, and reminders at a glance.
+                      </span>
+                    </li>
+                    <li className="flex gap-2">
+                      <span className="text-primary font-bold shrink-0">·</span>
+                      <span>
+                        <strong className="text-neutral-dark">Calendar</strong> — dated tasks on a month view; drag and organize by day.
+                      </span>
+                    </li>
+                    <li className="flex gap-2">
+                      <span className="text-primary font-bold shrink-0">·</span>
+                      <span>
+                        <strong className="text-neutral-dark">Reminders</strong> — casual quick list or dated items with color categories.
+                      </span>
+                    </li>
+                    <li className="flex gap-2">
+                      <span className="text-primary font-bold shrink-0">·</span>
+                      <span>
+                        <strong className="text-neutral-dark">Hapti AI</strong> — add reminders, move calendar items, and create habits from chat.
+                      </span>
+                    </li>
+                  </ul>
+                  <motion.div
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{
+                      delay: 0.85,
+                      duration: 0.55,
+                      ease: ONBOARD_EASE_OUT,
+                    }}
+                  >
+                    <TextShimmer className="text-lg font-medium mt-2 [--base-color:#4a8a5e] [--base-gradient-color:#2E3A3F]" duration={3}>
+                      Ready to start improving?
+                    </TextShimmer>
+                  </motion.div>
+                </div>
+              </OnboardingStep>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   );
 }
