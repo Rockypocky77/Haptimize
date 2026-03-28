@@ -36,7 +36,7 @@ import {
   serverTimestamp,
 } from "@/lib/firebase/client";
 import { toast } from "sonner";
-import { Plus, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { useDemoGuard } from "@/components/ui/DemoGate";
 import FadeIn from "@/components/ui/FadeIn";
 import ClickSpark from "@/components/ui/ClickSpark";
@@ -83,6 +83,29 @@ function parseDateLabel(dateStr: string) {
   return `${dayName} ${d.getMonth() + 1}/${d.getDate()}`;
 }
 
+function reminderMatchesSearch(
+  r: Reminder,
+  q: string,
+  categoryById: Record<string, Category | undefined>
+): boolean {
+  if (!q) return true;
+  const parts: string[] = [r.text.toLowerCase()];
+  const cat = r.categoryId ? categoryById[r.categoryId] : undefined;
+  if (cat?.name) parts.push(cat.name.toLowerCase());
+  if (r.date) {
+    parts.push(r.date.toLowerCase());
+    const d = new Date(r.date + "T12:00:00");
+    if (!Number.isNaN(d.getTime())) {
+      parts.push(MONTHS[d.getMonth()].toLowerCase());
+      parts.push(String(d.getDate()));
+      parts.push(String(d.getMonth() + 1));
+      parts.push(parseDateLabel(r.date).toLowerCase());
+      parts.push(DAYS_SHORT[d.getDay()].toLowerCase());
+    }
+  }
+  return parts.some((s) => s.includes(q));
+}
+
 export default function RemindersPage() {
   const { profile } = useAuth();
   const { isDemo, guardAction } = useDemoGuard();
@@ -93,6 +116,7 @@ export default function RemindersPage() {
   const [newDate, setNewDate] = useState("");
   const [newCategoryId, setNewCategoryId] = useState<string | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+  const [reminderSearch, setReminderSearch] = useState("");
   const [showAddCategory, setShowAddCategory] = useState(false);
   const [showPlansModal, setShowPlansModal] = useState(false);
   const [viewMonth, setViewMonth] = useState(() => {
@@ -372,12 +396,33 @@ export default function RemindersPage() {
     [categoryFilter]
   );
 
-  const casualReminders = filterByCategory(
-    reminders.filter((r) => r.reminderType === "casual")
-  );
-  const datedReminders = filterByCategory(
-    reminders.filter((r) => r.reminderType === "dated")
-  );
+  const searchNorm = reminderSearch.trim().toLowerCase();
+
+  const casualReminders = useMemo(() => {
+    let list = reminders.filter((r) => r.reminderType === "casual");
+    list = filterByCategory(list);
+    if (searchNorm) {
+      list = list.filter((r) =>
+        reminderMatchesSearch(r, searchNorm, categoryMap)
+      );
+    }
+    return list;
+  }, [reminders, filterByCategory, searchNorm, categoryMap]);
+
+  const datedReminders = useMemo(() => {
+    let list = reminders.filter((r) => r.reminderType === "dated");
+    list = filterByCategory(list);
+    if (searchNorm) {
+      list = list.filter((r) =>
+        reminderMatchesSearch(r, searchNorm, categoryMap)
+      );
+    }
+    return list;
+  }, [reminders, filterByCategory, searchNorm, categoryMap]);
+
+  const anyCasualTotal = reminders.some((r) => r.reminderType === "casual");
+  const anyDatedTotal = reminders.some((r) => r.reminderType === "dated");
+  const searchActive = searchNorm.length > 0;
 
   // Group dated reminders by date for the current month
   const daysInMonth = getDaysInMonth(viewMonth.year, viewMonth.month);
@@ -405,6 +450,14 @@ export default function RemindersPage() {
     }
     return grouped;
   }, [datedReminders, viewMonth, daysInMonth, startDay]);
+
+  const hasMatchingDatedInView = useMemo(() => {
+    for (let d = startDay; d <= daysInMonth; d++) {
+      const dateStr = formatDate(viewMonth.year, viewMonth.month, d);
+      if ((datedByDate[dateStr] ?? []).length > 0) return true;
+    }
+    return false;
+  }, [datedByDate, startDay, daysInMonth, viewMonth.year, viewMonth.month]);
 
   function getTargetDateFromOver(overId: string): string | null {
     const overStr = String(overId);
@@ -550,6 +603,24 @@ export default function RemindersPage() {
         onAdd={addCategory}
       />
 
+      <FadeIn delay={0.2}>
+        <div className="relative w-full">
+          <Search
+            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-dark/35 pointer-events-none z-10"
+            size={18}
+            aria-hidden
+          />
+          <Input
+            type="search"
+            placeholder="Search reminders (text, category, date)…"
+            value={reminderSearch}
+            onChange={(e) => setReminderSearch(e.target.value)}
+            className="pl-10"
+            aria-label="Search reminders"
+          />
+        </div>
+      </FadeIn>
+
       {/* Casual tab */}
       {tab === "casual" && (
         <FadeIn delay={0.25}>
@@ -565,7 +636,9 @@ export default function RemindersPage() {
           )}
           {casualReminders.length === 0 ? (
             <p className="text-sm text-neutral-dark/40 py-4 text-center">
-              No casual reminders yet.
+              {!anyCasualTotal
+                ? "No casual reminders yet."
+                : "No reminders match your search or category filter."}
             </p>
           ) : (
             <div className="flex flex-col gap-2 overflow-visible">
@@ -642,55 +715,73 @@ export default function RemindersPage() {
             )}
           </div>
 
-          <div className="space-y-4">
-            {Array.from({ length: daysInMonth - startDay + 1 }, (_, i) => {
-              const day = startDay + i;
-              const dateStr = formatDate(viewMonth.year, viewMonth.month, day);
-              const rems = datedByDate[dateStr] ?? [];
-              return (
-                <DroppableDateBox key={dateStr} dateStr={dateStr}>
-                  <div className="p-4">
-                    <h3 className="text-sm font-semibold text-neutral-dark/60 mb-3">
-                      {parseDateLabel(dateStr)}
-                    </h3>
-                    <SortableContext
-                      items={rems.map((r) => r.id)}
-                      strategy={verticalListSortingStrategy}
-                    >
-                      <div className="space-y-2">
-                        <AnimatePresence mode="popLayout">
-                          {rems.map((r) => (
-                            <motion.div
-                              key={r.id}
-                              layout
-                              initial={{ opacity: 0, y: 8 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              exit={{ opacity: 0, height: 0, marginBottom: 0, overflow: "hidden" }}
-                              transition={{ duration: 0.25, ease: "easeOut" }}
-                            >
-                              <DraggableReminder
-                                id={r.id}
-                                text={r.text}
-                                completed={r.completed}
-                                onToggle={toggleReminder}
-                                onDelete={(id) => removeReminder(id, "dated")}
-                                categoryColor={r.categoryId ? categoryMap[r.categoryId]?.color : undefined}
-                              />
-                            </motion.div>
-                          ))}
-                        </AnimatePresence>
-                        {rems.length === 0 && (
-                          <p className="text-xs text-neutral-dark/40 py-2">
-                            Drop reminders here
-                          </p>
-                        )}
-                      </div>
-                    </SortableContext>
-                  </div>
-                </DroppableDateBox>
-              );
-            })}
-          </div>
+          {anyDatedTotal && datedReminders.length === 0 && (
+            <p className="text-sm text-neutral-dark/40 py-6 text-center">
+              No reminders match your search or category filter.
+            </p>
+          )}
+
+          {searchActive &&
+            datedReminders.length > 0 &&
+            !hasMatchingDatedInView && (
+              <p className="text-sm text-neutral-dark/40 py-6 text-center">
+                No matching reminders in {MONTHS[viewMonth.month]}{" "}
+                {viewMonth.year}. Try another month or clear the search.
+              </p>
+            )}
+
+          {!(anyDatedTotal && datedReminders.length === 0) && (
+            <div className="space-y-4">
+              {Array.from({ length: daysInMonth - startDay + 1 }, (_, i) => {
+                const day = startDay + i;
+                const dateStr = formatDate(viewMonth.year, viewMonth.month, day);
+                const rems = datedByDate[dateStr] ?? [];
+                if (searchActive && rems.length === 0) return null;
+                return (
+                  <DroppableDateBox key={dateStr} dateStr={dateStr}>
+                    <div className="p-4">
+                      <h3 className="text-sm font-semibold text-neutral-dark/60 mb-3">
+                        {parseDateLabel(dateStr)}
+                      </h3>
+                      <SortableContext
+                        items={rems.map((r) => r.id)}
+                        strategy={verticalListSortingStrategy}
+                      >
+                        <div className="space-y-2">
+                          <AnimatePresence mode="popLayout">
+                            {rems.map((r) => (
+                              <motion.div
+                                key={r.id}
+                                layout
+                                initial={{ opacity: 0, y: 8 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, height: 0, marginBottom: 0, overflow: "hidden" }}
+                                transition={{ duration: 0.25, ease: "easeOut" }}
+                              >
+                                <DraggableReminder
+                                  id={r.id}
+                                  text={r.text}
+                                  completed={r.completed}
+                                  onToggle={toggleReminder}
+                                  onDelete={(id) => removeReminder(id, "dated")}
+                                  categoryColor={r.categoryId ? categoryMap[r.categoryId]?.color : undefined}
+                                />
+                              </motion.div>
+                            ))}
+                          </AnimatePresence>
+                          {rems.length === 0 && (
+                            <p className="text-xs text-neutral-dark/40 py-2">
+                              Drop reminders here
+                            </p>
+                          )}
+                        </div>
+                      </SortableContext>
+                    </div>
+                  </DroppableDateBox>
+                );
+              })}
+            </div>
+          )}
         </DndContext>
         </FadeIn>
       )}
