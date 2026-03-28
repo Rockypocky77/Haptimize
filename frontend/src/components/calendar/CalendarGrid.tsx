@@ -115,10 +115,26 @@ export default function CalendarGrid() {
         getDocs(collection(db, "reminders", profile.uid, "casual")),
         getDocs(collection(db, "categories", profile.uid, "items")),
       ]);
-      setReminders(
-        datedSnap.docs.map((d) => ({ id: d.id, ...d.data() } as Reminder))
+      let datedList: Reminder[] = datedSnap.docs.map(
+        (d) => ({ id: d.id, ...d.data() } as Reminder)
       );
-      setCasualCount(casualSnap.docs.length);
+      for (const r of datedList) {
+        if (r.completed) {
+          await deleteDoc(doc(db, "reminders", profile.uid, "dated", r.id)).catch(() => {});
+        }
+      }
+      datedList = datedList.filter((r) => !r.completed);
+      setReminders(datedList);
+
+      let casualCompleted = 0;
+      for (const d of casualSnap.docs) {
+        const data = d.data();
+        if (data.completed === true) {
+          casualCompleted++;
+          await deleteDoc(doc(db, "reminders", profile.uid, "casual", d.id)).catch(() => {});
+        }
+      }
+      setCasualCount(Math.max(0, casualSnap.docs.length - casualCompleted));
       setCategories(
         categoriesSnap.docs.map((d) => ({ id: d.id, ...d.data() } as Category))
       );
@@ -513,9 +529,9 @@ export default function CalendarGrid() {
                 }}
                 className={`
                   relative flex rounded-xl p-3 min-h-[90px] cursor-pointer
-                  border-2 origin-center
+                  border-2 origin-center transition-[transform,box-shadow,border-color] duration-500
                   ${isToday ? "border-primary bg-primary/5" : "border-primary-light/30 bg-surface"}
-                  ${isHovered ? "border-primary-light/50" : ""}
+                  ${isHovered ? "border-primary/50 ring-2 ring-primary/35 ring-offset-2 ring-offset-neutral-light" : ""}
                 `}
               >
                 <div className="flex-1 min-w-0">
@@ -666,7 +682,7 @@ export default function CalendarGrid() {
                                   setEditText(r.text);
                                   setEditDate(r.date);
                                 }}
-                                className={`flex-1 cursor-pointer hover:text-primary ${
+                                className={`ui-hover-text flex-1 cursor-pointer hover:text-primary ${
                                   r.completed
                                     ? "line-through text-neutral-dark/40"
                                     : "text-neutral-dark/70"

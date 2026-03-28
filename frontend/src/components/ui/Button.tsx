@@ -44,6 +44,7 @@ export default function Button({
         inline-flex items-center justify-center font-medium
         cursor-pointer
         disabled:opacity-50 disabled:cursor-not-allowed
+        ${variant === "primary" || variant === "accent" ? "ui-hover-spotlight" : ""}
         ${variantClasses[variant]}
         ${sizeClasses[size]}
         ${fullWidth ? "w-full" : ""}

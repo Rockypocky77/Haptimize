@@ -58,7 +58,7 @@ export default function Modal({ open, onClose, children, title }: ModalProps) {
               <ClickSpark sparkColor="#7FAF8F" sparkSize={10} sparkRadius={18} sparkCount={6} duration={300} className="ml-auto h-auto min-h-0">
                 <button
                   onClick={onClose}
-                  className="p-1 rounded-lg hover:bg-neutral-light text-neutral-dark/60 cursor-pointer"
+                  className="ui-hover-pop p-1 rounded-lg hover:bg-neutral-light text-neutral-dark/60 cursor-pointer"
                 >
                   <X size={20} />
                 </button>

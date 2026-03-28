@@ -461,7 +461,7 @@ export default function HaptiAiDock() {
             <ClickSpark sparkColor="#fff" sparkSize={12} sparkRadius={20} sparkCount={8} duration={350} className="block w-full h-full">
               <button
                 onClick={() => setOpen(true)}
-                className="w-full h-full rounded-2xl bg-primary text-white shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center cursor-pointer"
+                className="ui-hover-spotlight w-full h-full rounded-2xl bg-primary text-white shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center cursor-pointer"
               >
                 <Sparkles size={24} />
               </button>
@@ -494,7 +494,7 @@ export default function HaptiAiDock() {
               <ClickSpark sparkColor="#7FAF8F" sparkSize={10} sparkRadius={18} sparkCount={6} duration={300} className="h-auto min-h-0">
                 <button
                   onClick={() => setOpen(false)}
-                  className="p-1.5 rounded-lg hover:bg-neutral-light text-neutral-dark/40 cursor-pointer"
+                  className="ui-hover-pop p-1.5 rounded-lg hover:bg-neutral-light text-neutral-dark/40 cursor-pointer"
                 >
                   <X size={18} />
                 </button>
@@ -534,7 +534,7 @@ export default function HaptiAiDock() {
                               <button
                                 key={i}
                                 onClick={() => handleNavigate(r.navigateTo!)}
-                                className="flex items-center gap-1 text-xs text-primary/80 hover:text-primary underline underline-offset-2 cursor-pointer transition-colors"
+                                className="ui-hover-text flex items-center gap-1 text-xs text-primary/80 hover:text-primary underline underline-offset-2 cursor-pointer transition-colors"
                               >
                                 <ExternalLink size={10} />
                                 View changes
@@ -553,7 +553,7 @@ export default function HaptiAiDock() {
                         >
                           <button
                             onClick={() => handleUndo(msg.id)}
-                            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-surface/80 text-neutral-dark/70 hover:bg-surface hover:text-red-500 border border-neutral-dark/10 cursor-pointer transition-all"
+                            className="ui-hover-pop flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-surface/80 text-neutral-dark/70 hover:bg-surface hover:text-red-500 border border-neutral-dark/10 cursor-pointer transition-all"
                           >
                             <Undo2 size={12} />
                             Undo (5s)
@@ -621,7 +621,7 @@ export default function HaptiAiDock() {
                     <ClickSpark sparkColor="#7FAF8F" sparkSize={8} sparkRadius={14} className="inline-flex">
                       <button
                         onClick={() => setShowPlansModal(true)}
-                        className="px-3 py-1.5 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary/90 transition-colors whitespace-nowrap"
+                        className="ui-hover-spotlight px-3 py-1.5 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary/90 transition-colors whitespace-nowrap"
                       >
                         Upgrade
                       </button>
@@ -639,13 +639,13 @@ export default function HaptiAiDock() {
                   onChange={(e) => setInput(e.target.value)}
                   placeholder={tokenLimitReached ? "Upgrade to continue chatting" : "Ask me anything..."}
                   disabled={tokenLimitReached}
-                  className="flex-1 px-4 py-2.5 rounded-xl bg-neutral-light text-sm text-neutral-dark placeholder:text-neutral-dark/30 border-none focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-neutral-light text-sm text-neutral-dark placeholder:text-neutral-dark/30 border-none focus:outline-none focus:ring-2 focus:ring-primary/30 shadow-sm transition-shadow hover:shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
                 />
                 <ClickSpark sparkColor="#fff" sparkSize={10} sparkRadius={18} className="inline-flex">
                   <motion.button
                     type="submit"
                     disabled={!input.trim() || sending || tokenLimitReached}
-                    className="p-2.5 rounded-xl bg-primary text-white disabled:opacity-40 hover:bg-primary/90 cursor-pointer disabled:cursor-not-allowed"
+                    className="ui-hover-spotlight p-2.5 rounded-xl bg-primary text-white disabled:opacity-40 hover:bg-primary/90 cursor-pointer disabled:cursor-not-allowed"
                     whileTap={{ scale: 0.92 }}
                     transition={{ duration: 0.1 }}
                   >

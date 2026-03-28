@@ -41,7 +41,7 @@ export default function CategoryFilter({
         onClick={() => !disabled && setOpen((o) => !o)}
         disabled={disabled}
         className={`
-          flex items-center gap-2 px-3 py-2 rounded-lg border
+          ui-hover-lift flex items-center gap-2 px-3 py-2 rounded-lg border
           bg-surface text-neutral-dark text-sm
           focus:outline-none focus:ring-2 focus:ring-primary/40
           border-primary-light/50

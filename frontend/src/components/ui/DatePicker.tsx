@@ -136,7 +136,7 @@ export default function DatePicker({
         <button
           type="button"
           onClick={prevMonth}
-          className="p-1.5 rounded-lg hover:bg-primary-light/20 text-neutral-dark/70 hover:text-neutral-dark transition-colors"
+          className="ui-hover-pop p-1.5 rounded-lg hover:bg-primary-light/20 text-neutral-dark/70 hover:text-neutral-dark transition-colors"
         >
           <ChevronLeft size={18} />
         </button>
@@ -146,7 +146,7 @@ export default function DatePicker({
         <button
           type="button"
           onClick={nextMonth}
-          className="p-1.5 rounded-lg hover:bg-primary-light/20 text-neutral-dark/70 hover:text-neutral-dark transition-colors"
+          className="ui-hover-pop p-1.5 rounded-lg hover:bg-primary-light/20 text-neutral-dark/70 hover:text-neutral-dark transition-colors"
         >
           <ChevronRight size={18} />
         </button>
@@ -179,7 +179,7 @@ export default function DatePicker({
               type="button"
               onClick={() => selectDate(d)}
               className={`
-                w-8 h-8 rounded-lg text-sm font-medium transition-colors
+                w-8 h-8 rounded-lg text-sm font-medium transition-colors ui-hover-pop
                 ${isSelected ? "bg-primary text-white" : ""}
                 ${!isSelected && isToday ? "bg-primary/20 text-primary" : ""}
                 ${!isSelected && !isToday ? "hover:bg-primary-light/20 text-neutral-dark" : ""}
@@ -200,7 +200,7 @@ export default function DatePicker({
         onClick={() => !disabled && setOpen((o) => !o)}
         disabled={disabled}
         className={`
-          flex items-center gap-2 rounded-xl border
+          ui-hover-lift flex items-center gap-2 rounded-xl border
           bg-surface text-neutral-dark
           focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary
           border-primary-light/50

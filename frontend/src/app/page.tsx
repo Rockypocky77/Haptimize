@@ -58,7 +58,7 @@ export default function LandingPage() {
         {/* Right 50% — frosted panel with Get Started + Demo (aligned toward center) */}
         <div className="flex items-center justify-start pl-8 lg:pl-16 p-8">
           <div
-            className="w-full max-w-lg rounded-[40px] p-12 min-h-[420px] flex flex-col justify-between border border-white/70 bg-white/40 backdrop-blur-2xl overflow-hidden relative"
+            className="ui-hover-lift w-full max-w-lg rounded-[40px] p-12 min-h-[420px] flex flex-col justify-between border border-white/70 bg-white/40 backdrop-blur-2xl overflow-hidden relative"
             style={{
               boxShadow:
                 "0 0 0 1px rgba(255,255,255,0.8) inset, 0 30px 60px -15px rgba(127, 175, 143, 0.08), 0 10px 25px -10px rgba(46, 58, 63, 0.04)",
@@ -118,17 +118,17 @@ export default function LandingPage() {
         </div>
       </div>
 
-      {/* Mobile: stacked layout */}
-      <div className="lg:hidden flex flex-col items-center justify-center p-8 relative z-10 min-h-screen">
+      {/* Mobile / tablet: stacked layout */}
+      <div className="lg:hidden flex flex-col items-center justify-center min-h-screen relative z-10 px-4 pt-[max(2rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))] sm:px-8">
         <Image
           src="/HaptimizeTLogo.png"
           alt="Haptimize"
           width={360}
           height={90}
-          className="w-[360px] h-auto mb-3"
+          className="w-full max-w-[min(100%,360px)] h-auto mb-3"
           priority
         />
-        <h1 className="text-4xl font-bold text-neutral-dark leading-tight text-center">
+        <h1 className="text-3xl sm:text-4xl font-bold text-neutral-dark leading-tight text-center px-1">
           Win Today&hellip;
           <br />
           <span className="text-primary">Win Tomorrow&hellip;</span>
@@ -136,7 +136,7 @@ export default function LandingPage() {
         <p className="text-lg text-neutral-dark/90 text-center mt-3 max-w-md">
           Let consistency turn small wins into massive results.
         </p>
-        <div className="w-full max-w-lg mt-8 p-6 rounded-2xl bg-white/40 backdrop-blur-xl border border-white/70">
+        <div className="ui-hover-lift w-full max-w-lg mt-8 p-6 rounded-2xl bg-white/40 backdrop-blur-xl border border-white/70">
           <p className="text-sm text-neutral-dark/60 mb-1 text-center">With Haptimize,</p>
           <h2 className="text-2xl font-light text-center text-neutral-dark/80 mb-8 ml-[15px] whitespace-nowrap">
             Improve your{" "}

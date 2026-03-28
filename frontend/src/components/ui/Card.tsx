@@ -32,7 +32,8 @@ export default function Card({
   const handleEnter: MouseEventHandler<HTMLDivElement> = useCallback((e) => {
     if (hover && ref.current) {
       ref.current.style.transform = "scale(1.015)";
-      ref.current.style.boxShadow = "var(--shadow-hover, 0 4px 12px rgba(0,0,0,0.08))";
+      ref.current.style.boxShadow =
+        "0 0 0 2px color-mix(in srgb, var(--theme-primary) 20%, transparent), var(--shadow-hover, 0 4px 12px rgba(0,0,0,0.08))";
     }
     onMouseEnter?.(e);
   }, [hover, onMouseEnter]);

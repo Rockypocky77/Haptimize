@@ -26,6 +26,8 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
           className={`
             w-full px-4 py-2.5 rounded-xl border
             bg-surface text-neutral-dark placeholder:text-neutral-dark/40
+            shadow-sm transition-shadow duration-300
+            hover:border-primary/45 hover:shadow-md
             focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary
             ${error ? "border-error" : "border-primary-light/50"}
             ${className}

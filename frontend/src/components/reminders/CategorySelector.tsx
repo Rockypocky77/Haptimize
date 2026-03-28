@@ -149,7 +149,7 @@ export default function CategorySelector({
         onClick={() => !disabled && setOpen((o) => !o)}
         disabled={disabled}
         className={`
-          flex items-center gap-2 px-4 py-2.5 rounded-xl border
+          ui-hover-lift flex items-center gap-2 px-4 py-2.5 rounded-xl border
           bg-surface text-neutral-dark min-w-[140px]
           focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary
           border-primary-light/50

@@ -4,6 +4,10 @@
 
 /* Base variables - overridden by .dark on html */
 :root {
+  /* App shell: main content inset matches collapsed Sidebar width */
+  --app-rail: 4rem;
+  --app-pad-min: 1rem;
+  --app-pad-fluid: clamp(1rem, 2.5vw, 2rem);
   --theme-primary: #5d8f6f;
   --theme-primary-light: #8aa896;
   --theme-accent: #d4a83a;
@@ -54,6 +58,30 @@ body {
   background: var(--color-neutral-light);
   color: var(--color-foreground);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
+
+/* Authenticated layout: fluid padding, safe areas, room for floating AI dock */
+.app-shell-main {
+  min-height: 100dvh;
+  margin-left: var(--app-rail);
+  padding: var(--app-pad-fluid);
+  padding-left: calc(var(--app-pad-fluid) + env(safe-area-inset-left, 0px));
+  padding-right: calc(var(--app-pad-fluid) + env(safe-area-inset-right, 0px));
+  padding-top: calc(var(--app-pad-min) + env(safe-area-inset-top, 0px));
+  padding-bottom: calc(
+    max(var(--app-pad-fluid), 5.5rem) + env(safe-area-inset-bottom, 0px)
+  );
+}
+
+@media (min-width: 768px) {
+  .app-shell-main {
+    padding-bottom: calc(var(--app-pad-fluid) + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* When Hapti AI dock is hidden, skip extra thumb / FAB clearance */
+.app-shell-main--compact-bottom {
+  padding-bottom: calc(var(--app-pad-fluid) + env(safe-area-inset-bottom, 0px));
 }
 
 /* Fade overlay for scrollable lists - theme-aware (avoids bright white in dark mode) */
@@ -166,4 +194,105 @@ body {
   0%, 100% { transform: translateY(0); }
   33% { transform: translateY(1.5px); }
   66% { transform: translateY(-1px); }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Interactive hover — matches Card / sidebar easing; opt out with .no-ui-hover */
+/* -------------------------------------------------------------------------- */
+:root {
+  --ui-hover-ease: cubic-bezier(0.25, 0.1, 0.25, 1);
+  --ui-hover-duration: 500ms;
+  --ui-spotlight-ring: 0 0 0 2px color-mix(in srgb, var(--theme-primary) 28%, transparent);
+}
+
+/* :where() keeps specificity at 0 so Tailwind hover:scale-* / inline transforms win */
+:where(button:not(:disabled):not(.no-ui-hover)) {
+  transition:
+    transform var(--ui-hover-duration) var(--ui-hover-ease),
+    box-shadow var(--ui-hover-duration) var(--ui-hover-ease),
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease,
+    opacity 150ms ease;
+}
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  :where(button:not(:disabled):not(.no-ui-hover):hover) {
+    transform: scale(1.02);
+  }
+
+  :where(a[href]:not(.no-ui-hover):hover) {
+    transform: scale(1.02);
+  }
+}
+
+/* Card-style lift for panels / triggers (higher specificity than :where button) */
+.ui-hover-lift {
+  transition:
+    transform var(--ui-hover-duration) var(--ui-hover-ease),
+    box-shadow var(--ui-hover-duration) var(--ui-hover-ease),
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease;
+  box-shadow: var(--shadow-card);
+}
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .ui-hover-lift:hover {
+    transform: scale(1.015);
+    box-shadow: var(--shadow-hover);
+  }
+}
+
+/* Icon / chip targets */
+.ui-hover-pop {
+  transition: transform var(--ui-hover-duration) var(--ui-hover-ease), background-color 150ms ease, color 150ms ease;
+}
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .ui-hover-pop:hover {
+    transform: scale(1.06);
+  }
+}
+
+/* Primary CTAs — soft breathing ring (box-shadow only; plays nice with scale) */
+@keyframes ui-spotlight-glow {
+  0%,
+  100% {
+    box-shadow:
+      var(--ui-spotlight-ring),
+      0 2px 8px color-mix(in srgb, var(--theme-primary) 12%, transparent);
+  }
+  50% {
+    box-shadow:
+      0 0 0 3px color-mix(in srgb, var(--theme-primary) 18%, transparent),
+      0 6px 20px color-mix(in srgb, var(--theme-primary) 20%, transparent);
+  }
+}
+
+.ui-hover-spotlight {
+  transition: transform var(--ui-hover-duration) var(--ui-hover-ease), box-shadow 200ms ease, background-color 150ms ease;
+}
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .ui-hover-spotlight:hover {
+    animation: ui-spotlight-glow 1.6s ease-in-out infinite;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-hover-spotlight:hover {
+    animation: none;
+  }
+}
+
+/* Clickable text rows */
+.ui-hover-text {
+  transition: transform var(--ui-hover-duration) var(--ui-hover-ease), color 150ms ease;
+}
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .ui-hover-text:hover {
+    transform: scale(1.02);
+  }
 }

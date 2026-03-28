@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useCallback } from "react";
+import { useRef, useCallback, useEffect, useState } from "react";
+import { APP_RAIL_PX } from "@/lib/app-shell";
 import Link from "next/link";
 import Image from "next/image";
 import ClickSpark from "@/components/ui/ClickSpark";
@@ -41,24 +42,35 @@ export default function Sidebar({
   const { profile, logout } = useAuth();
   const { startTransition } = useTransition();
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [hoverExpandOk, setHoverExpandOk] = useState(true);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(hover: hover) and (pointer: fine)");
+    const sync = () => setHoverExpandOk(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
 
   const handleMouseEnter = useCallback(() => {
+    if (!hoverExpandOk) return;
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
     }
     onExpand();
-  }, [onExpand]);
+  }, [hoverExpandOk, onExpand]);
 
   const handleMouseLeave = useCallback(() => {
+    if (!hoverExpandOk) return;
     timeoutRef.current = setTimeout(onCollapse, COLLAPSE_DELAY_MS);
-  }, [onCollapse]);
+  }, [hoverExpandOk, onCollapse]);
 
   return (
     <aside
-      className="fixed left-0 top-0 h-screen bg-surface border-r border-primary-light/30 flex flex-col z-40 overflow-hidden"
+      className="fixed left-0 top-0 z-40 flex h-[100dvh] flex-col overflow-hidden border-r border-primary-light/30 bg-surface pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)]"
       style={{
-        width: isExpanded ? 220 : 64,
+        width: isExpanded ? 220 : APP_RAIL_PX,
         transition: "width 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
       }}
       onMouseEnter={handleMouseEnter}
@@ -68,7 +80,7 @@ export default function Sidebar({
         <ClickSpark sparkColor="#7FAF8F" sparkSize={10} sparkRadius={18} className="flex items-center min-w-0">
         <Link
           href="/home"
-          className="flex items-center gap-3 min-w-0"
+          className="no-ui-hover flex items-center gap-3 min-w-0"
           style={{ transition: "transform 500ms cubic-bezier(0.25, 0.1, 0.25, 1)" }}
           onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.06)"; }}
           onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
@@ -111,7 +123,7 @@ export default function Sidebar({
             <Link
               href={href}
               title={label}
-              className="flex items-center w-full py-3 min-w-0 group"
+              className="no-ui-hover flex items-center w-full py-3 min-w-0 group"
               onMouseEnter={(e) => { const inner = e.currentTarget.firstElementChild as HTMLElement; if (inner) inner.style.transform = "scale(1.06)"; }}
               onMouseLeave={(e) => { const inner = e.currentTarget.firstElementChild as HTMLElement; if (inner) inner.style.transform = "scale(1)"; }}
             >

@@ -386,7 +386,7 @@ export default function HomePage() {
                   transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
                 >
                   <ClickSpark sparkColor="#7FAF8F" sparkSize={10} sparkRadius={18} className="block">
-                  <Link href="/reminders" className="block">
+                  <Link href="/reminders" className="no-ui-hover block">
                   <Card className="cursor-pointer">
                     <h3 className="text-sm font-semibold text-neutral-dark/70 mb-3 flex items-center gap-2">
                       <Bell size={16} />
@@ -458,7 +458,7 @@ export default function HomePage() {
                   transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
                 >
                   <ClickSpark sparkColor="#7FAF8F" sparkSize={10} sparkRadius={18} className="block">
-                  <Link href="/checklist" className="block">
+                  <Link href="/checklist" className="no-ui-hover block">
                   <Card className="cursor-pointer">
                     <h3 className="text-sm font-semibold text-neutral-dark/70 mb-3 flex items-center gap-2">
                       <CheckSquare size={16} />
