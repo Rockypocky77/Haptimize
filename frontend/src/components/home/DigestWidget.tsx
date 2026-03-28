@@ -758,7 +758,7 @@ function DigestModal({
                           </ul>
                         )}
                       </SectionBlock>
-                      <SectionBlock title="Coach note" icon={Sparkles} delay={0.12}>
+                      <SectionBlock title="Hapti note" icon={Sparkles} delay={0.12}>
                         {aiLoading && tab === "daily" ? (
                           <div className="flex items-center gap-2 text-neutral-dark/45">
                             <motion.div
@@ -811,7 +811,7 @@ function DigestModal({
                       <SectionBlock title="Insight" icon={Lightbulb} delay={0.12} accent="from-sky-400/15 to-transparent">
                         <p>{weeklyM.insight}</p>
                       </SectionBlock>
-                      <SectionBlock title="Coach note" icon={Sparkles} delay={0.14}>
+                      <SectionBlock title="Hapti note" icon={Sparkles} delay={0.14}>
                         {aiLoading && tab === "weekly" && !coachForTab ? (
                           <div className="flex items-center gap-2 text-neutral-dark/45">
                             <motion.div
@@ -862,7 +862,7 @@ function DigestModal({
                           </p>
                         )}
                       </SectionBlock>
-                      <SectionBlock title="Coach note" icon={Sparkles} delay={0.12}>
+                      <SectionBlock title="Hapti note" icon={Sparkles} delay={0.12}>
                         {aiLoading && tab === "monthly" && !coachForTab ? (
                           <div className="flex items-center gap-2 text-neutral-dark/45">
                             <motion.div
