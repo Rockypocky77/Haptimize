@@ -40,7 +40,7 @@ function ReminderDemo() {
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.95 }}
       transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
-      className="w-full max-w-[260px] bg-white rounded-xl shadow-lg border border-gray-200/60 p-4"
+      className="w-full max-w-[210px] bg-white rounded-lg shadow-md border border-gray-200/60 p-2.5 scale-[0.92] origin-top"
     >
       <h4 className="text-sm font-semibold text-neutral-dark/80 mb-3 flex items-center gap-2">
         <Bell size={14} className="text-accent" /> Reminders
@@ -94,7 +94,7 @@ function CalendarDemo() {
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.95 }}
       transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
-      className="w-full max-w-[260px] bg-white rounded-xl shadow-lg border border-gray-200/60 p-4"
+      className="w-full max-w-[210px] bg-white rounded-lg shadow-md border border-gray-200/60 p-2.5 scale-[0.92] origin-top"
     >
       <h4 className="text-sm font-semibold text-neutral-dark/80 mb-3 flex items-center gap-2">
         <Calendar size={14} className="text-primary" /> Calendar
@@ -157,7 +157,7 @@ function HabitsDemo() {
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.95 }}
       transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
-      className="w-full max-w-[260px] bg-white rounded-xl shadow-lg border border-gray-200/60 p-4"
+      className="w-full max-w-[210px] bg-white rounded-lg shadow-md border border-gray-200/60 p-2.5 scale-[0.92] origin-top"
     >
       <h4 className="text-sm font-semibold text-neutral-dark/80 mb-3 flex items-center gap-2">
         <CheckSquare size={14} className="text-primary" /> Habits
@@ -394,26 +394,26 @@ export default function HaptiAiOnboardingStep({
   const showDemo = DEMO_PHASES.includes(phase);
 
   return (
-    <div className="w-full max-w-4xl mx-auto">
+    <div className="w-full max-w-4xl mx-auto h-full min-h-0 flex flex-col overflow-hidden">
       {/* intro icon */}
       <AnimatePresence mode="sync">
         {!chatOpen && (
           <motion.div
             key="intro-icon"
-            className="flex flex-col items-center gap-4"
+            className="flex flex-col items-center gap-2 shrink-0"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 4 }}
             transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
           >
             <motion.div
-              className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center shadow-lg"
+              className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center shadow-lg"
               animate={{ scale: [1, 1.04, 1] }}
               transition={{ duration: 2.4, repeat: Infinity, ease: [0.45, 0, 0.55, 1] }}
             >
-              <Sparkles size={28} className="text-white" />
+              <Sparkles size={22} className="text-white" />
             </motion.div>
-            <p className="text-lg font-semibold text-neutral-dark">
+            <p className="text-sm font-semibold text-neutral-dark">
               Meet Hapti AI
             </p>
           </motion.div>
@@ -425,18 +425,18 @@ export default function HaptiAiOnboardingStep({
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.52, ease: [0.22, 1, 0.36, 1] }}
-          className="space-y-4"
+          className="space-y-2 min-h-0 flex-1 flex flex-col overflow-hidden"
         >
           {/* narration text above everything */}
-          <div className="text-center relative min-h-[44px] flex items-start justify-center">
+          <div className="text-center relative min-h-[32px] sm:min-h-[36px] flex items-start justify-center shrink-0">
             <AnimatePresence mode="sync">
               {narration && (
                 <motion.p
                   key={phase}
                   className={
                     isPrompt
-                      ? "text-base font-medium text-primary absolute left-0 right-0 px-2"
-                      : "text-lg md:text-xl font-semibold text-neutral-dark absolute left-0 right-0 px-2"
+                      ? "text-sm font-medium text-primary absolute left-0 right-0 px-2"
+                      : "text-sm sm:text-base font-semibold text-neutral-dark absolute left-0 right-0 px-2"
                   }
                   initial={{ opacity: 0, y: 4 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -450,13 +450,13 @@ export default function HaptiAiOnboardingStep({
           </div>
 
           {/* Stacked layout: demo above chat so the panel never jumps sideways on desktop */}
-          <div className="flex flex-col items-center gap-6 w-full">
+          <div className="flex flex-col items-center gap-2 w-full min-h-0 flex-1 overflow-hidden">
             {showDemo && (
               <motion.div
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-                className="w-full flex justify-center min-h-[200px] items-center"
+                className="w-full flex justify-center min-h-0 max-h-[24vh] items-center shrink-0 py-1"
               >
                 <AnimatePresence mode="sync">
                   {phase === "demo_reminders" && <ReminderDemo key="rem" />}
@@ -466,10 +466,10 @@ export default function HaptiAiOnboardingStep({
               </motion.div>
             )}
 
-            <div className="flex justify-center w-full">
-              <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl border border-primary-light/30 overflow-hidden">
+            <div className="flex justify-center w-full min-h-0 flex-1 overflow-hidden">
+              <div className="w-full max-w-[min(100%,20rem)] bg-white rounded-xl shadow-xl border border-primary-light/30 overflow-hidden flex flex-col min-h-0 max-h-full">
                 {/* header */}
-                <div className="flex items-center gap-2 px-4 py-3 border-b border-primary-light/20 bg-white">
+                <div className="flex items-center gap-2 px-3 py-2 border-b border-primary-light/20 bg-white shrink-0">
                   <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center">
                     <Sparkles size={14} className="text-primary" />
                   </div>
@@ -486,7 +486,7 @@ export default function HaptiAiOnboardingStep({
                 {/* messages */}
                 <div
                   ref={scrollRef}
-                  className="h-72 overflow-y-auto px-3 py-3 space-y-2.5 bg-gray-50/50"
+                  className="flex-1 min-h-0 max-h-[32vh] sm:max-h-[36vh] overflow-y-auto overscroll-contain px-2.5 py-2 space-y-2 bg-gray-50/50"
                 >
                   <AnimatePresence initial={false}>
                     {messages.map((msg) => (
@@ -515,7 +515,7 @@ export default function HaptiAiOnboardingStep({
                 {/* input */}
                 <form
                   onSubmit={handleSubmit}
-                  className="px-3 py-2.5 border-t border-gray-200/60 bg-white"
+                  className="px-2.5 py-2 border-t border-gray-200/60 bg-white shrink-0"
                 >
                   <div className="flex gap-2">
                     <input

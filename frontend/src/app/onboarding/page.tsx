@@ -66,11 +66,11 @@ export default function OnboardingPage() {
   if (loading || !user) return null;
 
   return (
-    <div className="min-h-[100dvh] bg-neutral-light overflow-x-hidden">
-      {/* Progress bar — scaleX avoids layout thrash from width % */}
-      <div className="fixed top-0 left-0 right-0 h-1 z-50 bg-primary/15">
+    <div className="fixed inset-0 z-[100] flex flex-col bg-neutral-light overflow-hidden overscroll-none">
+      {/* Progress bar */}
+      <div className="h-1 shrink-0 bg-primary/15 relative z-20 overflow-hidden">
         <motion.div
-          className="h-full bg-primary origin-left"
+          className="h-full bg-primary origin-left absolute inset-y-0 left-0"
           style={{ width: "100%" }}
           initial={{ scaleX: 0 }}
           animate={{ scaleX: (step + 1) / 6 }}
@@ -78,13 +78,12 @@ export default function OnboardingPage() {
         />
       </div>
 
-      {/* Overlapping steps + sync crossfade avoids wait-mode pop between screens */}
-      <div className="relative min-h-[100dvh] w-full">
+      <div className="flex-1 min-h-0 relative overflow-hidden">
         <AnimatePresence mode="sync">
           {step === 0 && (
             <motion.div
               key="step0"
-              className="absolute inset-0 z-10 overflow-y-auto overflow-x-hidden bg-neutral-light"
+              className="absolute inset-0 z-10 flex flex-col overflow-hidden bg-neutral-light"
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 6 }}
@@ -97,7 +96,7 @@ export default function OnboardingPage() {
           {step === 1 && (
             <motion.div
               key="step1"
-              className="absolute inset-0 z-10 overflow-x-hidden bg-neutral-light"
+              className="absolute inset-0 z-10 flex flex-col overflow-hidden bg-neutral-light"
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 6 }}
@@ -112,7 +111,7 @@ export default function OnboardingPage() {
           {step === 2 && (
             <motion.div
               key="step2"
-              className="absolute inset-0 z-10 overflow-x-hidden bg-neutral-light"
+              className="absolute inset-0 z-10 flex flex-col overflow-hidden bg-neutral-light"
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 6 }}
@@ -127,7 +126,7 @@ export default function OnboardingPage() {
           {step === 3 && (
             <motion.div
               key="step3"
-              className="absolute inset-0 z-10 overflow-y-auto overflow-x-hidden bg-neutral-light"
+              className="absolute inset-0 z-10 flex flex-col overflow-hidden bg-neutral-light"
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 6 }}
@@ -142,7 +141,7 @@ export default function OnboardingPage() {
           {step === 4 && (
             <motion.div
               key="step4"
-              className="absolute inset-0 z-10 overflow-y-auto overflow-x-hidden bg-neutral-light"
+              className="absolute inset-0 z-10 flex flex-col overflow-hidden bg-neutral-light"
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 6 }}
@@ -157,7 +156,7 @@ export default function OnboardingPage() {
           {step === 5 && (
             <motion.div
               key="step5"
-              className="absolute inset-0 z-10 overflow-x-hidden bg-neutral-light"
+              className="absolute inset-0 z-10 flex flex-col overflow-hidden bg-neutral-light"
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 6 }}
@@ -169,22 +168,22 @@ export default function OnboardingPage() {
                 secondaryButtonLabel="Replay onboarding"
                 onSecondaryClick={replayOnboarding}
               >
-                <div className="text-center space-y-6 max-w-lg mx-auto px-2">
+                <div className="text-center space-y-3 max-w-lg mx-auto px-2 min-h-0 overflow-hidden">
                   <BlurText
                     text="Small changes."
                     delay={150}
                     animateBy="words"
                     direction="top"
-                    className="text-3xl md:text-5xl font-black text-neutral-dark"
+                    className="text-2xl sm:text-3xl md:text-4xl font-black text-neutral-dark"
                   />
                   <BlurText
                     text="Massive results."
                     delay={150}
                     animateBy="words"
                     direction="top"
-                    className="text-3xl md:text-5xl font-black text-primary"
+                    className="text-2xl sm:text-3xl md:text-4xl font-black text-primary"
                   />
-                  <ul className="text-left text-sm text-neutral-dark/70 space-y-2 max-w-sm mx-auto pt-2">
+                  <ul className="text-left text-[11px] sm:text-xs text-neutral-dark/70 space-y-1 max-w-sm mx-auto pt-1 leading-snug">
                     <li className="flex gap-2">
                       <span className="text-primary font-bold shrink-0">·</span>
                       <span>
@@ -225,7 +224,7 @@ export default function OnboardingPage() {
                       ease: ONBOARD_EASE_OUT,
                     }}
                   >
-                    <TextShimmer className="text-lg font-medium mt-2 [--base-color:#4a8a5e] [--base-gradient-color:#2E3A3F]" duration={3}>
+                    <TextShimmer className="text-base font-medium mt-1 [--base-color:#4a8a5e] [--base-gradient-color:#2E3A3F]" duration={3}>
                       Ready to start improving?
                     </TextShimmer>
                   </motion.div>

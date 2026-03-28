@@ -12,13 +12,13 @@ interface FocusItem {
 
 /** Matches CompletionCircle + home Card: ring, %, “completed”, “Today’s habits” */
 function MiniTodayCard({ pct }: { pct: number }) {
-  const size = 100;
+  const size = 76;
   const stroke = 10;
   const r = (size - stroke) / 2;
   const circ = 2 * Math.PI * r;
   const offset = circ - (pct / 100) * circ;
   return (
-    <div className="flex flex-col items-center justify-center py-5 px-3 bg-surface rounded-2xl shadow-sm border border-primary-light/30">
+    <div className="flex flex-col items-center justify-center py-3 px-2 bg-surface rounded-xl shadow-sm border border-primary-light/30">
       <div className="relative inline-flex items-center justify-center">
         <svg width={size} height={size} className="-rotate-90 shrink-0">
           <circle
@@ -45,11 +45,11 @@ function MiniTodayCard({ pct }: { pct: number }) {
           />
         </svg>
         <div className="absolute flex flex-col items-center pointer-events-none">
-          <span className="text-xl font-bold text-neutral-dark tabular-nums">{pct}%</span>
+          <span className="text-lg font-bold text-neutral-dark tabular-nums">{pct}%</span>
           <span className="text-[9px] text-neutral-dark/50">completed</span>
         </div>
       </div>
-      <p className="text-[11px] text-neutral-dark/60 mt-3">Today&apos;s habits</p>
+      <p className="text-[10px] text-neutral-dark/60 mt-2">Today&apos;s habits</p>
     </div>
   );
 }
@@ -58,13 +58,13 @@ function MiniTodayCard({ pct }: { pct: number }) {
 function MiniAnalytics() {
   const score = 78;
   return (
-    <div className="bg-surface rounded-2xl shadow-sm border border-primary-light/30 p-4 min-h-[132px]">
-      <div className="space-y-2 mb-2">
+    <div className="bg-surface rounded-xl shadow-sm border border-primary-light/30 p-2.5">
+      <div className="space-y-1 mb-1">
         <div className="flex items-baseline justify-between gap-2">
-          <span className="text-xl font-bold text-neutral-dark tabular-nums">{score}</span>
+          <span className="text-lg font-bold text-neutral-dark tabular-nums">{score}</span>
           <span className="text-[9px] text-neutral-dark/50">Momentum</span>
         </div>
-        <div className="h-2 rounded-full bg-neutral-dark/10 overflow-hidden">
+        <div className="h-1.5 rounded-full bg-neutral-dark/10 overflow-hidden">
           <motion.div
             className="h-full rounded-full bg-gradient-to-r from-primary via-primary-light to-accent"
             initial={{ width: "0%" }}
@@ -90,16 +90,16 @@ function MiniAnalytics() {
 /** Unlocked DigestWidget row: gradient bar + ring + Recap copy */
 function MiniRecap() {
   const pct = 68;
-  const size = 52;
+  const size = 44;
   const stroke = 5;
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
   const off = c * (1 - pct / 100);
   return (
-    <div className="bg-surface rounded-2xl shadow-sm border border-neutral-dark/10 overflow-hidden min-h-[100px]">
+    <div className="bg-surface rounded-xl shadow-sm border border-neutral-dark/10 overflow-hidden">
       <div className="flex items-stretch">
         <div className="w-[4px] bg-gradient-to-b from-primary via-primary-light to-accent shrink-0" />
-        <div className="flex-1 p-3 flex items-center gap-3 min-w-0">
+        <div className="flex-1 p-2 flex items-center gap-2 min-w-0">
           <svg width={size} height={size} className="shrink-0 -rotate-90">
             <defs>
               <linearGradient id="onbDigestRing" x1="0" y1="0" x2="1" y2="1">
@@ -146,13 +146,13 @@ function MiniRecap() {
 /** StreakCard layout */
 function MiniStreak() {
   return (
-    <div className="bg-surface rounded-2xl shadow-sm border border-primary-light/30 flex items-center gap-3 p-4">
-      <div className="w-11 h-11 rounded-xl bg-accent/20 flex items-center justify-center shrink-0">
-        <Flame size={22} className="text-accent" />
+    <div className="bg-surface rounded-xl shadow-sm border border-primary-light/30 flex items-center gap-2 p-2.5">
+      <div className="w-9 h-9 rounded-xl bg-accent/20 flex items-center justify-center shrink-0">
+        <Flame size={18} className="text-accent" />
       </div>
       <div className="min-w-0">
-        <p className="text-lg font-bold text-neutral-dark leading-tight">
-          7 <span className="text-xs font-normal text-neutral-dark/50">days</span>
+        <p className="text-base font-bold text-neutral-dark leading-tight">
+          7 <span className="text-[10px] font-normal text-neutral-dark/50">days</span>
         </p>
         <p className="text-[9px] text-neutral-dark/50">Goal Streak (80%+ daily)</p>
       </div>
@@ -162,11 +162,11 @@ function MiniStreak() {
 
 /** Home reminders Card — accent dots only (same as home list) */
 function MiniReminders() {
-  const items = ["Buy groceries", "Call dentist for appointment", "Submit project report"];
+  const items = ["Buy groceries", "Call dentist for appointment"];
   return (
-    <div className="bg-surface rounded-2xl shadow-sm border border-primary-light/30 p-4">
+    <div className="bg-surface rounded-xl shadow-sm border border-primary-light/30 p-2.5">
       <h3 className="text-[11px] font-semibold text-neutral-dark/70 mb-2 flex items-center gap-2">
-        <Bell size={14} className="text-neutral-dark/60" />
+        <Bell size={12} className="text-neutral-dark/60" />
         Reminders
       </h3>
       <ul className="space-y-1.5 text-left">
@@ -183,11 +183,11 @@ function MiniReminders() {
 
 /** Habits to Complete — pending rows + empty checkbox (home uses opacity-0 check) */
 function MiniHabits() {
-  const pending = ["Drink 8 cups of water", "Exercise for 30 minutes", "Meditate for 10 minutes"];
+  const pending = ["Drink 8 cups of water", "Exercise for 30 minutes"];
   return (
-    <div className="bg-surface rounded-2xl shadow-sm border border-primary-light/30 p-4">
+    <div className="bg-surface rounded-xl shadow-sm border border-primary-light/30 p-2.5">
       <h3 className="text-[11px] font-semibold text-neutral-dark/70 mb-2 flex items-center gap-2">
-        <CheckSquare size={14} className="text-neutral-dark/60" />
+        <CheckSquare size={12} className="text-neutral-dark/60" />
         Habits to Complete
       </h3>
       <ul className="space-y-1.5 text-left">
@@ -275,23 +275,23 @@ export default function DashboardPreview({ onComplete }: { onComplete: () => voi
   };
 
   return (
-    <div className="text-center space-y-5 w-full max-w-lg mx-auto">
+    <div className="text-center space-y-2 w-full max-w-lg mx-auto min-h-0 max-h-full flex flex-col overflow-hidden">
       <BlurText
         text="This mirrors your Home layout."
         delay={100}
         animateBy="words"
         direction="top"
-        className="text-2xl md:text-3xl font-bold text-neutral-dark"
+        className="text-lg sm:text-xl md:text-2xl font-bold text-neutral-dark shrink-0"
       />
 
       <motion.div
-        className="relative mx-auto w-full max-w-[420px] min-h-[420px] rounded-2xl border border-primary-light/25 bg-neutral-light/40 p-3 md:p-4"
+        className="relative mx-auto w-full max-w-[min(100%,22rem)] min-h-0 max-h-[min(52vh,20rem)] sm:max-h-[min(56vh,22rem)] rounded-xl border border-primary-light/25 bg-neutral-light/40 p-2 sm:p-2.5 overflow-hidden"
         initial={false}
         animate={dashboardVisible ? { opacity: 1, y: 0 } : { opacity: 0, y: 14 }}
         transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
       >
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div className="space-y-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 h-full min-h-0">
+          <div className="space-y-2 min-h-0">
             <motion.div
               className={`relative transition-[opacity,transform,box-shadow] duration-[480ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${blurStyle("today")}`}
             >
@@ -303,7 +303,7 @@ export default function DashboardPreview({ onComplete }: { onComplete: () => voi
               <MiniAnalytics />
             </motion.div>
           </div>
-          <div className="space-y-3">
+          <div className="space-y-2 min-h-0">
             <motion.div
               className={`transition-[opacity,transform,box-shadow] duration-[480ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${blurStyle("streak")}`}
             >
@@ -328,12 +328,12 @@ export default function DashboardPreview({ onComplete }: { onComplete: () => voi
         </div>
       </motion.div>
 
-      <div className="relative min-h-[72px] mt-1">
+      <div className="relative min-h-[52px] sm:min-h-[56px] mt-0.5 shrink-0">
         <AnimatePresence mode="sync">
           {focusIndex >= 0 && focusIndex < focusItems.length && (
             <motion.p
               key={focusItems[focusIndex].id}
-              className="text-xs md:text-sm text-neutral-dark/80 font-medium max-w-md mx-auto absolute left-0 right-0 top-0 px-2 leading-relaxed"
+              className="text-[10px] sm:text-xs text-neutral-dark/80 font-medium max-w-md mx-auto absolute left-0 right-0 top-0 px-1 leading-snug"
               initial={{ opacity: 0, y: 5 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -3 }}

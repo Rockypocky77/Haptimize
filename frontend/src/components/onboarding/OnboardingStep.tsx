@@ -30,12 +30,14 @@ export default function OnboardingStep({
   const hasFooter = showButton || secondaryButtonLabel;
 
   return (
-    <div className="min-h-[100dvh] w-full flex flex-col items-center justify-center px-4 pt-[max(2.5rem,env(safe-area-inset-top))] pb-[max(3rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-12">
-      <div className={`flex-1 flex flex-col items-center justify-center w-full ${wide ? "max-w-5xl" : "max-w-2xl"}`}>
+    <div className="h-full min-h-0 w-full flex flex-col items-stretch overflow-hidden px-3 pt-[max(0.35rem,env(safe-area-inset-top))] pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:px-4">
+      <div
+        className={`flex-1 min-h-0 flex flex-col items-center justify-center w-full mx-auto overflow-hidden ${wide ? "max-w-5xl" : "max-w-2xl"}`}
+      >
         {children}
       </div>
       {hasFooter && (
-        <div className="mt-10 sm:mt-12 w-full flex flex-col items-center gap-3 min-h-[108px] justify-start shrink-0">
+        <div className="mt-2 pt-1 w-full flex flex-col items-center gap-2 min-h-[76px] justify-end shrink-0">
           <AnimatePresence mode="sync">
             {showButton && (
               <motion.div

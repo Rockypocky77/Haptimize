@@ -21,33 +21,33 @@ export default function GraphAnimation() {
   const areaD = `${pathD} L 500,200 L 0,200 Z`;
 
   return (
-    <div className="text-center space-y-8">
+    <div className="text-center space-y-3 sm:space-y-4 min-h-0 max-h-full overflow-hidden flex flex-col justify-center">
       <BlurText
         text="Did you know?"
         delay={150}
         animateBy="words"
         direction="top"
-        className="text-lg text-neutral-dark/70 font-medium"
+        className="text-sm sm:text-base text-neutral-dark/70 font-medium"
         onAnimationComplete={() => {}}
       />
 
-      <div className="space-y-2">
+      <div className="space-y-1">
         <BlurText
           text="Improving just 1% every day"
           delay={120}
           animateBy="words"
           direction="top"
-          className="text-2xl md:text-3xl font-bold text-neutral-dark"
+          className="text-lg sm:text-xl md:text-2xl font-bold text-neutral-dark"
         />
         <BlurText
           text="makes you"
           delay={120}
           animateBy="words"
           direction="top"
-          className="text-2xl md:text-3xl font-bold text-neutral-dark"
+          className="text-lg sm:text-xl md:text-2xl font-bold text-neutral-dark"
         />
-        <div className="flex items-baseline justify-center gap-3">
-          <span className="text-5xl md:text-6xl font-black text-primary">
+        <div className="flex items-baseline justify-center gap-2 flex-wrap">
+          <span className="text-3xl sm:text-4xl md:text-5xl font-black text-primary">
             <CountUp from={0} to={37.8} duration={2.5} delay={0.8} suffix="x" />
           </span>
           <BlurText
@@ -55,18 +55,18 @@ export default function GraphAnimation() {
             delay={120}
             animateBy="words"
             direction="top"
-            className="text-2xl md:text-3xl font-bold text-neutral-dark"
+            className="text-lg sm:text-xl md:text-2xl font-bold text-neutral-dark"
           />
         </div>
       </div>
 
       <motion.div
-        className="relative mx-auto max-w-md"
-        initial={{ opacity: 0, y: 20 }}
+        className="relative mx-auto max-w-[min(100%,20rem)] w-full min-h-0"
+        initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 1, duration: 0.85, ease: [0.22, 1, 0.36, 1] }}
       >
-        <div className="relative rounded-2xl bg-white/80 border border-gray-200/50 p-5 overflow-hidden shadow-sm">
+        <div className="relative rounded-xl bg-white/80 border border-gray-200/50 p-2 sm:p-3 overflow-hidden shadow-sm">
           <motion.div
             className="absolute inset-0 rounded-2xl pointer-events-none"
             initial={{ opacity: 0 }}
@@ -76,7 +76,7 @@ export default function GraphAnimation() {
               background: "radial-gradient(ellipse 80% 50% at 70% 30%, rgba(127,175,143,0.25), transparent 70%)",
             }}
           />
-          <svg viewBox="0 0 500 220" className="w-full h-auto">
+          <svg viewBox="0 0 500 220" className="w-full h-auto max-h-[min(28vh,9rem)] sm:max-h-[min(32vh,11rem)]">
             <defs>
               <linearGradient id="curveGrad" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="#4a8a5e" stopOpacity="0.4" />
@@ -112,7 +112,7 @@ export default function GraphAnimation() {
         </div>
       </motion.div>
 
-      <div className="min-h-[52px] flex items-center justify-center">
+      <div className="min-h-[36px] sm:min-h-[40px] flex items-center justify-center shrink-0">
         <motion.div
           initial={false}
           animate={
@@ -124,7 +124,7 @@ export default function GraphAnimation() {
           className="pointer-events-none"
           aria-hidden={!showSubtext}
         >
-          <TextShimmer className="text-xl font-semibold [--base-color:#4a8a5e] [--base-gradient-color:#2E3A3F]" duration={3}>
+          <TextShimmer className="text-sm sm:text-base font-semibold [--base-color:#4a8a5e] [--base-gradient-color:#2E3A3F]" duration={3}>
             Consistency is everything.
           </TextShimmer>
         </motion.div>

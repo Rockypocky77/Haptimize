@@ -17,16 +17,15 @@ export default function TermsAndPrivacyStep({ onAgree }: TermsAndPrivacyStepProp
 
   /* Entrance/exit animated by onboarding page step wrapper — avoid double fade */
   return (
-    <div className="min-h-[100dvh] w-full flex flex-col items-center px-4 pt-[max(2.5rem,env(safe-area-inset-top))] pb-[max(3rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-12">
-      <div className="flex-1 w-full max-w-2xl space-y-6">
-        <h2 className="text-2xl font-bold text-neutral-dark text-center">
-          Terms & Privacy
-        </h2>
-        <p className="text-sm text-neutral-dark/60 text-center">
-          Please read and agree to both documents to continue.
+    <div className="h-full min-h-0 w-full flex flex-col overflow-hidden px-3 pt-[max(0.35rem,env(safe-area-inset-top))] pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:px-4">
+      <div className="shrink-0 text-center space-y-0.5 mb-2">
+        <h2 className="text-lg sm:text-xl font-bold text-neutral-dark">Terms & Privacy</h2>
+        <p className="text-[11px] sm:text-xs text-neutral-dark/60">
+          Read both panels below, then agree.
         </p>
-
-        <TermsAgreementForm onAgree={handleAgree} />
+      </div>
+      <div className="flex-1 min-h-0 w-full max-w-4xl mx-auto overflow-hidden flex flex-col">
+        <TermsAgreementForm onAgree={handleAgree} fitViewport />
       </div>
     </div>
   );
