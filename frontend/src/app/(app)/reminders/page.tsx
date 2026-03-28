@@ -13,7 +13,7 @@ import {
   SortableContext,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
@@ -82,6 +82,18 @@ function parseDateLabel(dateStr: string) {
   const dayName = DAYS_SHORT[d.getDay()];
   return `${dayName} ${d.getMonth() + 1}/${d.getDate()}`;
 }
+
+/** Smooth reflow when search/category filters the list */
+const reminderFilterLayoutTransition = {
+  type: "spring" as const,
+  stiffness: 420,
+  damping: 36,
+  mass: 0.88,
+};
+const reminderFilterFadeTransition = {
+  duration: 0.22,
+  ease: [0.25, 0.1, 0.25, 1] as const,
+};
 
 function reminderMatchesSearch(
   r: Reminder,
@@ -459,6 +471,23 @@ export default function RemindersPage() {
     return false;
   }, [datedByDate, startDay, daysInMonth, viewMonth.year, viewMonth.month]);
 
+  const visibleDatedDateStrs = useMemo(() => {
+    const out: string[] = [];
+    for (let d = startDay; d <= daysInMonth; d++) {
+      const dateStr = formatDate(viewMonth.year, viewMonth.month, d);
+      const rems = datedByDate[dateStr] ?? [];
+      if (!searchActive || rems.length > 0) out.push(dateStr);
+    }
+    return out;
+  }, [
+    datedByDate,
+    searchActive,
+    startDay,
+    daysInMonth,
+    viewMonth.year,
+    viewMonth.month,
+  ]);
+
   function getTargetDateFromOver(overId: string): string | null {
     const overStr = String(overId);
     if (overStr.startsWith("date-")) {
@@ -634,23 +663,32 @@ export default function RemindersPage() {
               />
             </div>
           )}
-          {casualReminders.length === 0 ? (
-            <p className="text-sm text-neutral-dark/40 py-4 text-center">
-              {!anyCasualTotal
-                ? "No casual reminders yet."
-                : "No reminders match your search or category filter."}
-            </p>
-          ) : (
+          <LayoutGroup id="casual-reminders">
             <div className="flex flex-col gap-2 overflow-visible">
-              <AnimatePresence mode="popLayout">
+              <AnimatePresence initial={false} mode="popLayout">
                 {casualReminders.map((r) => (
                   <motion.div
                     key={r.id}
                     layout
-                    initial={{ opacity: 0, y: 12, scale: 0.98 }}
+                    initial={{ opacity: 0, y: 10, scale: 0.97 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, height: 0, marginTop: 0, marginBottom: 0, paddingTop: 0, paddingBottom: 0, overflow: "hidden" }}
-                    transition={{ duration: 0.3, ease: [0.32, 0.72, 0, 1] }}
+                    exit={{
+                      opacity: 0,
+                      y: -8,
+                      scale: 0.97,
+                      transition: {
+                        opacity: { ...reminderFilterFadeTransition },
+                        y: reminderFilterFadeTransition,
+                        scale: reminderFilterFadeTransition,
+                        layout: reminderFilterLayoutTransition,
+                      },
+                    }}
+                    transition={{
+                      layout: reminderFilterLayoutTransition,
+                      opacity: reminderFilterFadeTransition,
+                      y: reminderFilterFadeTransition,
+                      scale: reminderFilterFadeTransition,
+                    }}
                   >
                     <ReminderCard
                       id={r.id}
@@ -664,7 +702,28 @@ export default function RemindersPage() {
                 ))}
               </AnimatePresence>
             </div>
-          )}
+            <AnimatePresence initial={false}>
+              {casualReminders.length === 0 && (
+                <motion.p
+                  key="casual-empty"
+                  layout
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{
+                    layout: reminderFilterLayoutTransition,
+                    opacity: reminderFilterFadeTransition,
+                    y: reminderFilterFadeTransition,
+                  }}
+                  className="text-sm text-neutral-dark/40 py-4 text-center"
+                >
+                  {!anyCasualTotal
+                    ? "No casual reminders yet."
+                    : "No reminders match your search or category filter."}
+                </motion.p>
+              )}
+            </AnimatePresence>
+          </LayoutGroup>
         </Card>
         </FadeIn>
       )}
@@ -731,56 +790,105 @@ export default function RemindersPage() {
             )}
 
           {!(anyDatedTotal && datedReminders.length === 0) && (
-            <div className="space-y-4">
-              {Array.from({ length: daysInMonth - startDay + 1 }, (_, i) => {
-                const day = startDay + i;
-                const dateStr = formatDate(viewMonth.year, viewMonth.month, day);
-                const rems = datedByDate[dateStr] ?? [];
-                if (searchActive && rems.length === 0) return null;
-                return (
-                  <DroppableDateBox key={dateStr} dateStr={dateStr}>
-                    <div className="p-4">
-                      <h3 className="text-sm font-semibold text-neutral-dark/60 mb-3">
-                        {parseDateLabel(dateStr)}
-                      </h3>
-                      <SortableContext
-                        items={rems.map((r) => r.id)}
-                        strategy={verticalListSortingStrategy}
+            <LayoutGroup
+              id={`dated-reminders-${viewMonth.year}-${viewMonth.month}`}
+            >
+              <div className="space-y-4">
+                <AnimatePresence initial={false} mode="popLayout">
+                  {visibleDatedDateStrs.map((dateStr) => {
+                    const rems = datedByDate[dateStr] ?? [];
+                    return (
+                      <motion.div
+                        key={dateStr}
+                        layout
+                        initial={{ opacity: 0, y: 12, scale: 0.99 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{
+                          opacity: 0,
+                          y: -10,
+                          scale: 0.99,
+                          transition: {
+                            opacity: { ...reminderFilterFadeTransition },
+                            y: reminderFilterFadeTransition,
+                            scale: reminderFilterFadeTransition,
+                            layout: reminderFilterLayoutTransition,
+                          },
+                        }}
+                        transition={{
+                          layout: reminderFilterLayoutTransition,
+                          opacity: reminderFilterFadeTransition,
+                          y: reminderFilterFadeTransition,
+                          scale: reminderFilterFadeTransition,
+                        }}
+                        className="overflow-visible"
                       >
-                        <div className="space-y-2">
-                          <AnimatePresence mode="popLayout">
-                            {rems.map((r) => (
-                              <motion.div
-                                key={r.id}
-                                layout
-                                initial={{ opacity: 0, y: 8 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, height: 0, marginBottom: 0, overflow: "hidden" }}
-                                transition={{ duration: 0.25, ease: "easeOut" }}
-                              >
-                                <DraggableReminder
-                                  id={r.id}
-                                  text={r.text}
-                                  completed={r.completed}
-                                  onToggle={toggleReminder}
-                                  onDelete={(id) => removeReminder(id, "dated")}
-                                  categoryColor={r.categoryId ? categoryMap[r.categoryId]?.color : undefined}
-                                />
-                              </motion.div>
-                            ))}
-                          </AnimatePresence>
-                          {rems.length === 0 && (
-                            <p className="text-xs text-neutral-dark/40 py-2">
-                              Drop reminders here
-                            </p>
-                          )}
-                        </div>
-                      </SortableContext>
-                    </div>
-                  </DroppableDateBox>
-                );
-              })}
-            </div>
+                        <DroppableDateBox dateStr={dateStr}>
+                          <div className="p-4">
+                            <h3 className="text-sm font-semibold text-neutral-dark/60 mb-3">
+                              {parseDateLabel(dateStr)}
+                            </h3>
+                            <SortableContext
+                              items={rems.map((r) => r.id)}
+                              strategy={verticalListSortingStrategy}
+                            >
+                              <div className="space-y-2">
+                                <AnimatePresence initial={false} mode="popLayout">
+                                  {rems.map((r) => (
+                                    <motion.div
+                                      key={r.id}
+                                      layout
+                                      initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                                      exit={{
+                                        opacity: 0,
+                                        y: -6,
+                                        scale: 0.98,
+                                        transition: {
+                                          opacity: { ...reminderFilterFadeTransition },
+                                          y: reminderFilterFadeTransition,
+                                          scale: reminderFilterFadeTransition,
+                                          layout: reminderFilterLayoutTransition,
+                                        },
+                                      }}
+                                      transition={{
+                                        layout: reminderFilterLayoutTransition,
+                                        opacity: reminderFilterFadeTransition,
+                                        y: reminderFilterFadeTransition,
+                                        scale: reminderFilterFadeTransition,
+                                      }}
+                                    >
+                                      <DraggableReminder
+                                        id={r.id}
+                                        text={r.text}
+                                        completed={r.completed}
+                                        onToggle={toggleReminder}
+                                        onDelete={(id) =>
+                                          removeReminder(id, "dated")
+                                        }
+                                        categoryColor={
+                                          r.categoryId
+                                            ? categoryMap[r.categoryId]?.color
+                                            : undefined
+                                        }
+                                      />
+                                    </motion.div>
+                                  ))}
+                                </AnimatePresence>
+                                {rems.length === 0 && (
+                                  <p className="text-xs text-neutral-dark/40 py-2">
+                                    Drop reminders here
+                                  </p>
+                                )}
+                              </div>
+                            </SortableContext>
+                          </div>
+                        </DroppableDateBox>
+                      </motion.div>
+                    );
+                  })}
+                </AnimatePresence>
+              </div>
+            </LayoutGroup>
           )}
         </DndContext>
         </FadeIn>
