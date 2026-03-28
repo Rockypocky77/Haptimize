@@ -36,6 +36,7 @@ import {
   saveMonthlySnapshot,
   loadYearlySnapshot,
   saveYearlySnapshot,
+  type WeeklyBarPoint,
 } from "@/lib/digest-storage";
 import {
   Sparkles,
@@ -339,6 +340,7 @@ function DigestModal({
   const [frozenWeekly, setFrozenWeekly] = useState<DigestWeeklyModel | null>(null);
   const [frozenMonthly, setFrozenMonthly] = useState<DigestMonthlyModel | null>(null);
   const [frozenYearly, setFrozenYearly] = useState<DigestYearlyModel | null>(null);
+  const [pinnedWeeklyBars, setPinnedWeeklyBars] = useState<WeeklyBarPoint[]>([]);
 
   const [aiDaily, setAiDaily] = useState("");
   const [aiWeekly, setAiWeekly] = useState("");
@@ -349,11 +351,6 @@ function DigestModal({
   const dailyM = useMemo(
     () => buildDigestDailyModel(activeHabits, habitLogs, streakThreshold, reminderStatsByDate, digestNow),
     [activeHabits, habitLogs, streakThreshold, reminderStatsByDate, digestNow]
-  );
-
-  const weeklySeries = useMemo(
-    () => getWeeklyBarSeries(activeHabits, habitLogs, digestNow),
-    [activeHabits, habitLogs, digestNow]
   );
 
   const liveWeekly = useMemo(
@@ -383,6 +380,7 @@ function DigestModal({
       setFrozenWeekly(null);
       setFrozenMonthly(null);
       setFrozenYearly(null);
+      setPinnedWeeklyBars([]);
       setAiDaily("");
       setAiWeekly("");
       setAiMonthly("");
@@ -413,12 +411,15 @@ function DigestModal({
 
     if (tab === "weekly" && tabAvail.weekly) {
       const s = loadWeeklySnapshot(userId, isDemo, periodKey);
+      const bars = getWeeklyBarSeries(activeHabits, habitLogs, digestNow);
       if (s) {
         setFrozenWeekly(s.model);
         setAiWeekly(s.aiText);
+        setPinnedWeeklyBars(s.barSeries ?? bars);
       } else {
         setFrozenWeekly(buildDigestWeeklyModel(activeHabits, habitLogs, digestNow));
         setAiWeekly("");
+        setPinnedWeeklyBars(bars);
       }
     } else if (tab === "monthly" && tabAvail.monthly) {
       const s = loadMonthlySnapshot(userId, isDemo, periodKey);
@@ -484,7 +485,7 @@ function DigestModal({
       const fallback = weeklyFallback(m);
       if (isDemo || !aiEnabled || !userId) {
         setAiWeekly(fallback);
-        if (userId && !isDemo) saveWeeklySnapshot(userId, pk, m, fallback);
+        if (userId && !isDemo) saveWeeklySnapshot(userId, pk, m, fallback, pinnedWeeklyBars);
         return;
       }
       setAiLoading(true);
@@ -494,7 +495,7 @@ function DigestModal({
       const reply = typeof res.reply === "string" ? res.reply.trim() : "";
       const text = res.ok && reply ? reply : fallback;
       setAiWeekly(text);
-      if (userId) saveWeeklySnapshot(userId, pk, m, text);
+      if (userId) saveWeeklySnapshot(userId, pk, m, text, pinnedWeeklyBars);
       setAiLoading(false);
     };
 
@@ -573,6 +574,7 @@ function DigestModal({
     aiWeekly,
     aiMonthly,
     aiYearly,
+    pinnedWeeklyBars,
   ]);
 
   const handleKeyDown = useCallback(
@@ -763,7 +765,7 @@ function DigestModal({
                       <p className="text-[11px] text-neutral-dark/45 px-1">
                         Saved snapshot · Week ending {weeklyM.end}
                       </p>
-                      <WeeklyBars series={weeklySeries} />
+                      <WeeklyBars series={pinnedWeeklyBars.length ? pinnedWeeklyBars : getWeeklyBarSeries(activeHabits, habitLogs, digestNow)} />
                       <div className="grid grid-cols-2 gap-3">
                         <StatOrb value={`${weeklyM.avgCompletionPct}%`} label="Avg completion" delay={0.05} />
                         <StatOrb value={weeklyM.totalHabitCompletions} label="Checkoffs" delay={0.08} />

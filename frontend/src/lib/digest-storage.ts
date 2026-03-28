@@ -30,10 +30,14 @@ function write(uid: string, tab: string, periodKey: string, payload: unknown): v
   }
 }
 
+export type WeeklyBarPoint = { date: string; pct: number; dayShort: string };
+
 export interface WeeklyDigestStored {
   periodKey: string;
   model: DigestWeeklyModel;
   aiText: string;
+  /** Frozen 7-day series when snapshot was saved (optional for older saves). */
+  barSeries?: WeeklyBarPoint[];
   savedAt: string;
 }
 
@@ -65,12 +69,14 @@ export function saveWeeklySnapshot(
   uid: string,
   periodKey: string,
   model: DigestWeeklyModel,
-  aiText: string
+  aiText: string,
+  barSeries?: WeeklyBarPoint[]
 ): void {
   write(uid, "weekly", periodKey, {
     periodKey,
     model,
     aiText,
+    barSeries,
     savedAt: new Date().toISOString(),
   } satisfies WeeklyDigestStored);
 }
