@@ -136,13 +136,47 @@ export interface DigestTabAvailability {
   yearlyReason: string;
 }
 
+/** Yearly tab only after January 1 of the calendar year following signup. */
+export function isYearlyDigestTabUnlocked(signupAt: Date | null, now: Date = new Date()): boolean {
+  if (!signupAt || Number.isNaN(signupAt.getTime())) return false;
+  const signupYear = signupAt.getFullYear();
+  const unlock = new Date(signupYear + 1, 0, 1);
+  return now >= unlock;
+}
+
+/** Stable localStorage key for the current weekly digest (refreshes each week, week ends Saturday `end`). */
+export function getWeeklyDigestPeriodKey(now: Date = new Date()): string {
+  const { end } = getWeeklyWindowYmd(now);
+  return `w-${end}`;
+}
+
+/** Stable key for the monthly digest (previous calendar month; refreshes on the 1st). */
+export function getMonthlyDigestPeriodKey(now: Date = new Date()): string {
+  const { start } = getPreviousMonthWindowYmd(now);
+  return `m-${start}`;
+}
+
+/**
+ * Stable key for yearly digest: Jan 1 shows prior-year wrap (`y-wrap-2025`);
+ * rest of year is one frozen YTD bucket per calendar year (`y-ytd-2026`).
+ */
+export function getYearlyDigestPeriodKey(now: Date = new Date()): string {
+  const y = now.getFullYear();
+  const m = now.getMonth();
+  const d = now.getDate();
+  if (m === 0 && d === 1) {
+    return `y-wrap-${y - 1}`;
+  }
+  return `y-ytd-${y}`;
+}
+
 export function getDigestTabAvailability(
   signupAt: Date | null,
   now: Date = new Date()
 ): DigestTabAvailability {
   const days = getDaysSinceSignup(signupAt, now);
   const weeklyOk = days !== null && days >= 7;
-  const yearlyOk = days !== null && days > 7;
+  const yearlyOk = isYearlyDigestTabUnlocked(signupAt, now);
 
   const prevMonthStart = parseYmdLocal(getStartOfPreviousCalendarMonth(now));
   const monthlyOk = signupAt !== null && !Number.isNaN(signupAt.getTime()) && signupAt < prevMonthStart;
@@ -152,9 +186,9 @@ export function getDigestTabAvailability(
     weekly: weeklyOk,
     monthly: monthlyOk,
     yearly: yearlyOk,
-    weeklyReason: weeklyOk ? "" : "Available after 7 days on Haptimize.",
-    monthlyReason: monthlyOk ? "" : "Available after your first full calendar month of data.",
-    yearlyReason: yearlyOk ? "" : "Available after your first week on Haptimize.",
+    weeklyReason: weeklyOk ? "" : "Available after 7 days. Summary refreshes each Sunday.",
+    monthlyReason: monthlyOk ? "" : "Available after your first full month. Refreshes on the 1st of each month.",
+    yearlyReason: yearlyOk ? "" : "Unlocks January 1 of the year after you joined.",
   };
 }
 
@@ -400,6 +434,27 @@ function fillRangeWithZeros(logs: HabitLog[], start: string, end: string): Habit
     d = addDays(d, 1);
   }
   return out;
+}
+
+/** 7-day completion series for the current weekly window (Sun→Sat labels). */
+export function getWeeklyBarSeries(
+  activeHabits: HabitRef[],
+  logs: HabitLog[],
+  now: Date = new Date()
+): { date: string; pct: number; dayShort: string }[] {
+  const { start, end } = getWeeklyWindowYmd(now);
+  const rangeLogs = filterLogsInRange(logs, start, end);
+  const total = activeHabits.length;
+  const filled = fillRangeWithZeros(rangeLogs, start, end);
+  const SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  return filled.map((l) => {
+    const dow = parseYmdLocal(l.date).getDay();
+    return {
+      date: l.date,
+      pct: effectiveCompletionPct(l, total),
+      dayShort: SHORT[dow] ?? "",
+    };
+  });
 }
 
 export interface DigestMonthlyModel {

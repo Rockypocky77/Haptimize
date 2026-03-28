@@ -20,12 +20,35 @@ import {
   digestMonthlyAiContext,
   digestYearlyAiContext,
   getYesterdayYmd,
+  getWeeklyDigestPeriodKey,
+  getMonthlyDigestPeriodKey,
+  getYearlyDigestPeriodKey,
+  getWeeklyBarSeries,
   type DigestDailyModel,
   type DigestWeeklyModel,
   type DigestMonthlyModel,
   type DigestYearlyModel,
 } from "@/lib/digest";
-import { Sparkles, X, ChevronRight, ScrollText } from "lucide-react";
+import {
+  loadWeeklySnapshot,
+  saveWeeklySnapshot,
+  loadMonthlySnapshot,
+  saveMonthlySnapshot,
+  loadYearlySnapshot,
+  saveYearlySnapshot,
+} from "@/lib/digest-storage";
+import {
+  Sparkles,
+  X,
+  ChevronRight,
+  ScrollText,
+  Target,
+  TrendingUp,
+  Calendar,
+  Flame,
+  Lightbulb,
+  Award,
+} from "lucide-react";
 
 type PlanTier = "free" | "pro" | "max";
 
@@ -42,10 +65,34 @@ interface DigestWidgetProps {
   aiEnabled: boolean;
 }
 
+const TAB_ORDER: DigestTabId[] = ["daily", "weekly", "monthly", "yearly"];
+
+const TAB_LABEL: Record<DigestTabId, string> = {
+  daily: "Daily",
+  weekly: "Weekly",
+  monthly: "Monthly",
+  yearly: "Yearly",
+};
+
+const TAB_HINT: Record<DigestTabId, string> = {
+  daily: "Fresh every day",
+  weekly: "Refreshes each Sunday",
+  monthly: "Refreshes on the 1st",
+  yearly: "Refreshes each January 1",
+};
+
+const TAB_DOT: Record<DigestTabId, string> = {
+  daily: "bg-emerald-500",
+  weekly: "bg-amber-400",
+  monthly: "bg-sky-500",
+  yearly: "bg-violet-500",
+};
+
 function DigestSkeleton() {
   return (
-    <Card className="p-5 min-h-[100px]">
-      <div className="space-y-3 animate-pulse">
+    <Card className="p-5 min-h-[112px] overflow-hidden relative">
+      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5 pointer-events-none" />
+      <div className="space-y-3 animate-pulse relative">
         <div className="h-4 w-28 bg-neutral-dark/10 rounded" />
         <div className="h-3 w-full bg-neutral-dark/8 rounded" />
         <div className="h-3 w-2/3 bg-neutral-dark/8 rounded" />
@@ -54,24 +101,166 @@ function DigestSkeleton() {
   );
 }
 
-function SectionBlock({
-  title,
-  children,
+function DigestRing({ pct, size = 76 }: { pct: number; size?: number }) {
+  const stroke = 6;
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  const clamped = Math.max(0, Math.min(100, pct));
+  const off = c * (1 - clamped / 100);
+  const cx = size / 2;
+  const cy = size / 2;
+  return (
+    <svg width={size} height={size} className="shrink-0 -rotate-90" aria-hidden>
+      <defs>
+        <linearGradient id="digestRingGrad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#7FAF8F" />
+          <stop offset="100%" stopColor="#F2C94C" />
+        </linearGradient>
+      </defs>
+      <circle cx={cx} cy={cy} r={r} fill="none" stroke="currentColor" strokeWidth={stroke} className="text-neutral-dark/10" />
+      <motion.circle
+        cx={cx}
+        cy={cy}
+        r={r}
+        fill="none"
+        stroke="url(#digestRingGrad)"
+        strokeWidth={stroke}
+        strokeLinecap="round"
+        strokeDasharray={c}
+        initial={{ strokeDashoffset: c }}
+        animate={{ strokeDashoffset: off }}
+        transition={{ duration: 0.9, ease: [0.25, 0.1, 0.25, 1] }}
+      />
+    </svg>
+  );
+}
+
+function WeeklyBars({ series }: { series: { date: string; dayShort: string; pct: number }[] }) {
+  const barH = 64;
+  const max = Math.max(100, ...series.map((s) => s.pct), 1);
+  return (
+    <div className="rounded-xl bg-neutral-dark/[0.03] border border-neutral-dark/6 px-2 py-3">
+      <p className="text-[10px] font-medium text-neutral-dark/40 uppercase tracking-wide mb-2 px-1">Week at a glance</p>
+      <div className="flex items-end justify-between gap-1 min-h-[76px]">
+        {series.map((s, i) => (
+          <div key={s.date} className="flex-1 flex flex-col items-center gap-1.5 min-w-0">
+            <div className="w-full flex justify-center" style={{ height: barH }}>
+              <motion.div
+                className="w-[70%] max-w-[26px] rounded-t-md bg-gradient-to-t from-primary/40 via-primary to-primary-light self-end"
+                initial={{ height: 0, opacity: 0.4 }}
+                animate={{ height: `${Math.max(4, (s.pct / max) * barH)}px`, opacity: 1 }}
+                transition={{ delay: 0.04 * i, duration: 0.45, ease: [0.25, 0.1, 0.25, 1] }}
+              />
+            </div>
+            <span className="text-[9px] font-medium text-neutral-dark/45 tabular-nums">{s.dayShort}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function MonthCompareVisual({
+  current,
+  prior,
+}: {
+  current: number;
+  prior: number | null;
+}) {
+  const max = Math.max(100, current, prior ?? 0, 1);
+  return (
+    <div className="space-y-2 rounded-xl bg-neutral-dark/[0.03] border border-neutral-dark/6 p-3">
+      <p className="text-[10px] font-medium text-neutral-dark/40 uppercase tracking-wide">vs prior month</p>
+      <div className="space-y-2">
+        <div>
+          <div className="flex justify-between text-[11px] mb-1">
+            <span className="text-neutral-dark/55">This month</span>
+            <span className="font-semibold text-primary tabular-nums">{current}%</span>
+          </div>
+          <div className="h-2 rounded-full bg-neutral-dark/8 overflow-hidden">
+            <motion.div
+              className="h-full rounded-full bg-gradient-to-r from-primary to-primary-light"
+              initial={{ width: 0 }}
+              animate={{ width: `${(current / max) * 100}%` }}
+              transition={{ duration: 0.7, ease: [0.25, 0.1, 0.25, 1] }}
+            />
+          </div>
+        </div>
+        {prior != null && (
+          <div>
+            <div className="flex justify-between text-[11px] mb-1">
+              <span className="text-neutral-dark/45">Prior</span>
+              <span className="font-medium text-neutral-dark/50 tabular-nums">{prior}%</span>
+            </div>
+            <div className="h-2 rounded-full bg-neutral-dark/8 overflow-hidden">
+              <motion.div
+                className="h-full rounded-full bg-neutral-dark/20"
+                initial={{ width: 0 }}
+                animate={{ width: `${(prior / max) * 100}%` }}
+                transition={{ duration: 0.7, delay: 0.08, ease: [0.25, 0.1, 0.25, 1] }}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function StatOrb({
+  value,
+  label,
+  sub,
   delay = 0,
 }: {
-  title: string;
-  children: React.ReactNode;
+  value: string | number;
+  label: string;
+  sub?: string;
   delay?: number;
 }) {
   return (
     <motion.div
-      className="p-4 rounded-xl bg-neutral-light/30 border border-neutral-dark/5"
-      initial={{ opacity: 0, y: 10 }}
+      className="relative rounded-2xl p-4 text-center overflow-hidden border border-neutral-dark/6 bg-gradient-to-br from-primary/8 via-surface to-accent/5"
+      initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay, duration: 0.35, ease: [0.25, 0.1, 0.25, 1] }}
+      transition={{ delay, duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
     >
-      <h4 className="text-xs font-semibold uppercase tracking-wide text-neutral-dark/45 mb-2">{title}</h4>
-      <div className="text-sm text-neutral-dark/85 space-y-1.5">{children}</div>
+      <div className="absolute -right-6 -top-6 w-24 h-24 rounded-full bg-primary/10 blur-2xl pointer-events-none" />
+      <p className="text-2xl font-bold text-neutral-dark tabular-nums relative">{value}</p>
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-dark/45 mt-1 relative">{label}</p>
+      {sub && <p className="text-[11px] text-neutral-dark/55 mt-0.5 relative">{sub}</p>}
+    </motion.div>
+  );
+}
+
+function SectionBlock({
+  title,
+  icon: Icon,
+  children,
+  delay = 0,
+  accent = "from-primary/15 to-transparent",
+}: {
+  title: string;
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+  children: React.ReactNode;
+  delay?: number;
+  accent?: string;
+}) {
+  return (
+    <motion.div
+      className={`relative rounded-2xl border border-neutral-dark/8 overflow-hidden bg-surface shadow-sm`}
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay, duration: 0.38, ease: [0.25, 0.1, 0.25, 1] }}
+    >
+      <div className={`absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b ${accent}`} />
+      <div className="p-4 pl-5">
+        <h4 className="text-xs font-bold uppercase tracking-wide text-neutral-dark/50 mb-2 flex items-center gap-2">
+          <Icon size={14} className="text-primary opacity-80" />
+          {title}
+        </h4>
+        <div className="text-sm text-neutral-dark/88 space-y-1.5">{children}</div>
+      </div>
     </motion.div>
   );
 }
@@ -105,14 +294,20 @@ function yearlyFallback(m: DigestYearlyModel): string {
   return "Every period teaches something—pick one habit to own next.";
 }
 
-const TAB_ORDER: DigestTabId[] = ["daily", "weekly", "monthly", "yearly"];
-
-const TAB_LABEL: Record<DigestTabId, string> = {
-  daily: "Daily",
-  weekly: "Weekly",
-  monthly: "Monthly",
-  yearly: "Yearly",
-};
+function DigestModalHeaderDecor() {
+  return (
+    <div className="absolute inset-0 overflow-hidden pointer-events-none rounded-t-2xl">
+      <div className="absolute -top-12 -right-8 w-40 h-40 rounded-full bg-primary/20 blur-3xl" />
+      <div className="absolute top-0 left-1/4 w-32 h-32 rounded-full bg-accent/15 blur-3xl" />
+      <svg className="absolute bottom-0 left-0 right-0 h-8 text-primary/10" preserveAspectRatio="none" viewBox="0 0 400 32">
+        <path
+          fill="currentColor"
+          d="M0,24 Q100,8 200,18 T400,12 L400,32 L0,32 Z"
+        />
+      </svg>
+    </div>
+  );
+}
 
 function DigestModal({
   open,
@@ -138,27 +333,60 @@ function DigestModal({
   isDemo: boolean;
 }) {
   const [tab, setTab] = useState<DigestTabId>("daily");
-  const [aiText, setAiText] = useState<string>("");
+  const [digestNow, setDigestNow] = useState(() => new Date());
+  const digestHydratedKey = useRef("");
+
+  const [frozenWeekly, setFrozenWeekly] = useState<DigestWeeklyModel | null>(null);
+  const [frozenMonthly, setFrozenMonthly] = useState<DigestMonthlyModel | null>(null);
+  const [frozenYearly, setFrozenYearly] = useState<DigestYearlyModel | null>(null);
+
+  const [aiDaily, setAiDaily] = useState("");
+  const [aiWeekly, setAiWeekly] = useState("");
+  const [aiMonthly, setAiMonthly] = useState("");
+  const [aiYearly, setAiYearly] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
-  const aiCacheRef = useRef<Map<string, string>>(new Map());
 
   const dailyM = useMemo(
-    () => buildDigestDailyModel(activeHabits, habitLogs, streakThreshold, reminderStatsByDate),
-    [activeHabits, habitLogs, streakThreshold, reminderStatsByDate]
+    () => buildDigestDailyModel(activeHabits, habitLogs, streakThreshold, reminderStatsByDate, digestNow),
+    [activeHabits, habitLogs, streakThreshold, reminderStatsByDate, digestNow]
   );
-  const weeklyM = useMemo(() => buildDigestWeeklyModel(activeHabits, habitLogs), [activeHabits, habitLogs]);
-  const monthlyM = useMemo(
-    () => buildDigestMonthlyModel(activeHabits, habitLogs, streakThreshold),
-    [activeHabits, habitLogs, streakThreshold]
+
+  const weeklySeries = useMemo(
+    () => getWeeklyBarSeries(activeHabits, habitLogs, digestNow),
+    [activeHabits, habitLogs, digestNow]
   );
-  const yearlyM = useMemo(
-    () => buildDigestYearlyModel(activeHabits, habitLogs, streakThreshold),
-    [activeHabits, habitLogs, streakThreshold]
+
+  const liveWeekly = useMemo(
+    () => buildDigestWeeklyModel(activeHabits, habitLogs, digestNow),
+    [activeHabits, habitLogs, digestNow]
   );
+  const liveMonthly = useMemo(
+    () => buildDigestMonthlyModel(activeHabits, habitLogs, streakThreshold, digestNow),
+    [activeHabits, habitLogs, streakThreshold, digestNow]
+  );
+  const liveYearly = useMemo(
+    () => buildDigestYearlyModel(activeHabits, habitLogs, streakThreshold, digestNow),
+    [activeHabits, habitLogs, streakThreshold, digestNow]
+  );
+
+  const weeklyM = frozenWeekly ?? liveWeekly;
+  const monthlyM = frozenMonthly ?? liveMonthly;
+  const yearlyM = frozenYearly ?? liveYearly;
+
+  useEffect(() => {
+    if (open) setDigestNow(new Date());
+  }, [open]);
 
   useEffect(() => {
     if (!open) {
-      aiCacheRef.current = new Map();
+      digestHydratedKey.current = "";
+      setFrozenWeekly(null);
+      setFrozenMonthly(null);
+      setFrozenYearly(null);
+      setAiDaily("");
+      setAiWeekly("");
+      setAiMonthly("");
+      setAiYearly("");
       return;
     }
     if (!tabAvail[tab]) setTab("daily");
@@ -166,78 +394,185 @@ function DigestModal({
 
   useEffect(() => {
     if (!open) return;
+
+    if (tab === "daily") {
+      digestHydratedKey.current = `daily-${getYesterdayYmd(digestNow)}`;
+      return;
+    }
+
+    const periodKey =
+      tab === "weekly"
+        ? getWeeklyDigestPeriodKey(digestNow)
+        : tab === "monthly"
+          ? getMonthlyDigestPeriodKey(digestNow)
+          : getYearlyDigestPeriodKey(digestNow);
+
+    const sessionKey = `${tab}-${periodKey}`;
+    if (digestHydratedKey.current === sessionKey) return;
+    digestHydratedKey.current = sessionKey;
+
+    if (tab === "weekly" && tabAvail.weekly) {
+      const s = loadWeeklySnapshot(userId, isDemo, periodKey);
+      if (s) {
+        setFrozenWeekly(s.model);
+        setAiWeekly(s.aiText);
+      } else {
+        setFrozenWeekly(buildDigestWeeklyModel(activeHabits, habitLogs, digestNow));
+        setAiWeekly("");
+      }
+    } else if (tab === "monthly" && tabAvail.monthly) {
+      const s = loadMonthlySnapshot(userId, isDemo, periodKey);
+      if (s) {
+        setFrozenMonthly(s.model);
+        setAiMonthly(s.aiText);
+      } else {
+        setFrozenMonthly(buildDigestMonthlyModel(activeHabits, habitLogs, streakThreshold, digestNow));
+        setAiMonthly("");
+      }
+    } else if (tab === "yearly" && tabAvail.yearly) {
+      const s = loadYearlySnapshot(userId, isDemo, periodKey);
+      if (s) {
+        setFrozenYearly(s.model);
+        setAiYearly(s.aiText);
+      } else {
+        setFrozenYearly(buildDigestYearlyModel(activeHabits, habitLogs, streakThreshold, digestNow));
+        setAiYearly("");
+      }
+    }
+  }, [
+    open,
+    tab,
+    digestNow,
+    userId,
+    isDemo,
+    activeHabits,
+    habitLogs,
+    streakThreshold,
+    tabAvail,
+  ]);
+
+  useEffect(() => {
+    if (!open) return;
     if (!tabAvail[tab]) return;
 
-    const fallback =
-      tab === "daily"
-        ? dailyFallback(dailyM)
-        : tab === "weekly"
-          ? weeklyFallback(weeklyM)
-          : tab === "monthly"
-            ? monthlyFallback(monthlyM)
-            : yearlyFallback(yearlyM);
-
-    const cacheKey =
-      tab === "daily"
-        ? `daily-${dailyM.dateYmd}`
-        : tab === "weekly"
-          ? `weekly-${weeklyM.start}-${weeklyM.end}`
-          : tab === "monthly"
-            ? `monthly-${monthlyM.start}`
-            : `yearly-${yearlyM.start}-${yearlyM.end}`;
-
-    const cached = aiCacheRef.current.get(cacheKey);
-    if (cached) {
-      setAiText(cached);
-      setAiLoading(false);
-      return;
-    }
-
-    if (isDemo || !aiEnabled || !userId) {
-      aiCacheRef.current.set(cacheKey, fallback);
-      setAiText(fallback);
-      setAiLoading(false);
-      return;
-    }
-
-    const ctx =
-      tab === "daily"
-        ? digestDailyAiContext(dailyM)
-        : tab === "weekly"
-          ? digestWeeklyAiContext(weeklyM)
-          : tab === "monthly"
-            ? digestMonthlyAiContext(monthlyM)
-            : digestYearlyAiContext(yearlyM);
-
-    const message = `[Digest assistant] In one or two short friendly sentences (no bullet points, no lists), react to this summary only. Do not give medical or legal advice.\n\n${ctx}`;
-
     let cancelled = false;
-    setAiLoading(true);
-    setAiText("");
 
-    void (async () => {
+    const runDaily = async () => {
+      const fallback = dailyFallback(dailyM);
+      if (isDemo || !aiEnabled || !userId) {
+        setAiDaily(fallback);
+        setAiLoading(false);
+        return;
+      }
+      setAiLoading(true);
+      setAiDaily("");
+      const message = `[Digest assistant] In one or two short friendly sentences (no bullet points, no lists), react to this summary only. Do not give medical or legal advice.\n\n${digestDailyAiContext(dailyM)}`;
       const res = await api.aiChat(message, userId, [], false);
       if (cancelled) return;
-      const text = res.ok && typeof res.reply === "string" && res.reply.trim() ? res.reply.trim() : fallback;
-      aiCacheRef.current.set(cacheKey, text);
-      setAiText(text);
+      const reply = typeof res.reply === "string" ? res.reply.trim() : "";
+      setAiDaily(res.ok && reply ? reply : fallback);
       setAiLoading(false);
+    };
+
+    const runWeekly = async () => {
+      const m = frozenWeekly ?? liveWeekly;
+      const pk = getWeeklyDigestPeriodKey(digestNow);
+      if (loadWeeklySnapshot(userId, isDemo, pk)?.aiText) return;
+      const existing = aiWeekly;
+      if (existing) return;
+
+      const fallback = weeklyFallback(m);
+      if (isDemo || !aiEnabled || !userId) {
+        setAiWeekly(fallback);
+        if (userId && !isDemo) saveWeeklySnapshot(userId, pk, m, fallback);
+        return;
+      }
+      setAiLoading(true);
+      const message = `[Digest assistant] In one or two short friendly sentences (no bullet points, no lists), react to this summary only. Do not give medical or legal advice.\n\n${digestWeeklyAiContext(m)}`;
+      const res = await api.aiChat(message, userId, [], false);
+      if (cancelled) return;
+      const reply = typeof res.reply === "string" ? res.reply.trim() : "";
+      const text = res.ok && reply ? reply : fallback;
+      setAiWeekly(text);
+      if (userId) saveWeeklySnapshot(userId, pk, m, text);
+      setAiLoading(false);
+    };
+
+    const runMonthly = async () => {
+      const m = frozenMonthly ?? liveMonthly;
+      const pk = getMonthlyDigestPeriodKey(digestNow);
+      if (loadMonthlySnapshot(userId, isDemo, pk)?.aiText) return;
+      if (aiMonthly) return;
+
+      const fallback = monthlyFallback(m);
+      if (isDemo || !aiEnabled || !userId) {
+        setAiMonthly(fallback);
+        if (userId && !isDemo) saveMonthlySnapshot(userId, pk, m, fallback);
+        return;
+      }
+      setAiLoading(true);
+      const message = `[Digest assistant] In one or two short friendly sentences (no bullet points, no lists), react to this summary only. Do not give medical or legal advice.\n\n${digestMonthlyAiContext(m)}`;
+      const res = await api.aiChat(message, userId, [], false);
+      if (cancelled) return;
+      const reply = typeof res.reply === "string" ? res.reply.trim() : "";
+      const text = res.ok && reply ? reply : fallback;
+      setAiMonthly(text);
+      if (userId) saveMonthlySnapshot(userId, pk, m, text);
+      setAiLoading(false);
+    };
+
+    const runYearly = async () => {
+      const m = frozenYearly ?? liveYearly;
+      const pk = getYearlyDigestPeriodKey(digestNow);
+      if (loadYearlySnapshot(userId, isDemo, pk)?.aiText) return;
+      if (aiYearly) return;
+
+      const fallback = yearlyFallback(m);
+      if (isDemo || !aiEnabled || !userId) {
+        setAiYearly(fallback);
+        if (userId && !isDemo) saveYearlySnapshot(userId, pk, m, fallback);
+        return;
+      }
+      setAiLoading(true);
+      const message = `[Digest assistant] In two short friendly sentences (no bullet points): first reflect on the period, then one concrete next step. Do not give medical or legal advice.\n\n${digestYearlyAiContext(m)}`;
+      const res = await api.aiChat(message, userId, [], false);
+      if (cancelled) return;
+      const reply = typeof res.reply === "string" ? res.reply.trim() : "";
+      const text = res.ok && reply ? reply : fallback;
+      setAiYearly(text);
+      if (userId) saveYearlySnapshot(userId, pk, m, text);
+      setAiLoading(false);
+    };
+
+    void (async () => {
+      if (tab === "daily") await runDaily();
+      else if (tab === "weekly") await runWeekly();
+      else if (tab === "monthly") await runMonthly();
+      else if (tab === "yearly") await runYearly();
     })();
 
     return () => {
       cancelled = true;
+      setAiLoading(false);
     };
   }, [
     open,
     tab,
     tabAvail,
     dailyM,
-    weeklyM,
-    monthlyM,
-    yearlyM,
-    aiEnabled,
+    frozenWeekly,
+    frozenMonthly,
+    frozenYearly,
+    liveWeekly,
+    liveMonthly,
+    liveYearly,
+    digestNow,
     userId,
+    aiEnabled,
     isDemo,
+    aiWeekly,
+    aiMonthly,
+    aiYearly,
   ]);
 
   const handleKeyDown = useCallback(
@@ -258,12 +593,23 @@ function DigestModal({
     };
   }, [open, handleKeyDown]);
 
+  const coachForTab =
+    tab === "daily" ? aiDaily : tab === "weekly" ? aiWeekly : tab === "monthly" ? aiMonthly : aiYearly;
+  const fallbackForTab =
+    tab === "daily"
+      ? dailyFallback(dailyM)
+      : tab === "weekly"
+        ? weeklyFallback(weeklyM)
+        : tab === "monthly"
+          ? monthlyFallback(monthlyM)
+          : yearlyFallback(yearlyM);
+
   const content = (
     <AnimatePresence>
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <motion.div
-            className="absolute inset-0 bg-neutral-dark/40 backdrop-blur-sm"
+            className="absolute inset-0 bg-neutral-dark/45 backdrop-blur-md"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -271,30 +617,36 @@ function DigestModal({
             onClick={onClose}
           />
           <motion.div
-            className="relative z-10 bg-surface rounded-2xl shadow-xl max-w-lg w-full max-h-[90vh] flex flex-col overflow-hidden mx-4"
-            initial={{ opacity: 0, scale: 0.92, y: 20 }}
+            className="relative z-10 bg-surface rounded-2xl shadow-2xl max-w-md w-full max-h-[92vh] flex flex-col overflow-hidden mx-4 border border-neutral-dark/8"
+            initial={{ opacity: 0, scale: 0.94, y: 24 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 10 }}
-            transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
+            exit={{ opacity: 0, scale: 0.96, y: 12 }}
+            transition={{ duration: 0.32, ease: [0.25, 0.1, 0.25, 1] }}
           >
-            <div className="flex items-center justify-between p-5 border-b border-neutral-dark/10 shrink-0">
-              <h3 className="text-lg font-semibold text-neutral-dark flex items-center gap-2">
-                <ScrollText size={20} />
-                Digest
-              </h3>
-              <ClickSpark sparkColor="#7FAF8F" sparkSize={10} sparkRadius={18} className="h-auto min-h-0">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="p-1 rounded-lg hover:bg-neutral-light text-neutral-dark/60 cursor-pointer"
-                >
-                  <X size={20} />
-                </button>
-              </ClickSpark>
+            <div className="relative shrink-0 border-b border-neutral-dark/8 overflow-hidden">
+              <DigestModalHeaderDecor />
+              <div className="relative flex items-center justify-between p-5 pb-6">
+                <div>
+                  <h3 className="text-lg font-bold text-neutral-dark flex items-center gap-2">
+                    <ScrollText size={22} className="text-primary" />
+                    Digest
+                  </h3>
+                  <p className="text-[11px] text-neutral-dark/45 mt-0.5">{TAB_HINT[tab]}</p>
+                </div>
+                <ClickSpark sparkColor="#7FAF8F" sparkSize={10} sparkRadius={18} className="h-auto min-h-0">
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="p-2 rounded-xl hover:bg-neutral-light/80 text-neutral-dark/55 cursor-pointer transition-colors"
+                  >
+                    <X size={20} />
+                  </button>
+                </ClickSpark>
+              </div>
             </div>
 
-            <div className="px-4 pt-3 border-b border-neutral-dark/5 shrink-0">
-              <div className="flex gap-1 overflow-x-auto pb-2 scrollbar-thin">
+            <div className="px-3 pt-2 pb-1 border-b border-neutral-dark/6 shrink-0 bg-neutral-light/20">
+              <div className="flex gap-0.5 overflow-x-auto pb-1 scrollbar-thin">
                 {TAB_ORDER.map((id) => {
                   const enabled = tabAvail[id];
                   const reason =
@@ -309,22 +661,23 @@ function DigestModal({
                     <button
                       key={id}
                       type="button"
-                      title={enabled ? TAB_LABEL[id] : reason}
+                      title={enabled ? `${TAB_LABEL[id]} — ${TAB_HINT[id]}` : reason}
                       disabled={!enabled}
                       onClick={() => enabled && setTab(id)}
                       className={`
-                        relative px-3 py-2 text-sm font-medium rounded-lg whitespace-nowrap transition-colors
-                        ${enabled ? "text-neutral-dark/80 hover:bg-neutral-light/60 cursor-pointer" : "text-neutral-dark/30 cursor-not-allowed"}
-                        ${tab === id && enabled ? "text-primary" : ""}
+                        relative flex items-center gap-2 px-3 py-2.5 rounded-xl whitespace-nowrap transition-all text-sm font-semibold
+                        ${enabled ? "text-neutral-dark/85 hover:bg-white/60 cursor-pointer" : "text-neutral-dark/28 cursor-not-allowed"}
+                        ${tab === id && enabled ? "bg-white shadow-sm text-primary" : ""}
                       `}
                       aria-disabled={!enabled}
                     >
+                      <span className={`w-2 h-2 rounded-full shrink-0 ${TAB_DOT[id]} ${enabled ? "opacity-90" : "opacity-25"}`} />
                       {TAB_LABEL[id]}
                       {tab === id && enabled && (
                         <motion.span
-                          layoutId="digestTabLine"
-                          className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full bg-primary"
-                          transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                          layoutId="digestTabPill"
+                          className="absolute inset-0 rounded-xl border-2 border-primary/25 pointer-events-none"
+                          transition={{ type: "spring", stiffness: 400, damping: 32 }}
                         />
                       )}
                     </button>
@@ -333,67 +686,73 @@ function DigestModal({
               </div>
             </div>
 
-            <div className="p-5 overflow-y-auto flex-1 space-y-4">
+            <div className="p-5 overflow-y-auto flex-1 space-y-4 bg-gradient-to-b from-neutral-light/15 to-transparent">
               <AnimatePresence mode="wait">
                 <motion.div
                   key={tab}
-                  initial={{ opacity: 0, x: 8 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -8 }}
-                  transition={{ duration: 0.25, ease: [0.25, 0.1, 0.25, 1] }}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.28, ease: [0.25, 0.1, 0.25, 1] }}
                   className="space-y-4"
                 >
                   {tab === "daily" && (
                     <>
-                      <p className="text-xs text-neutral-dark/45">Yesterday ({dailyM.periodLabel})</p>
-                      <SectionBlock title="What you did" delay={0.05}>
-                        <p>
-                          <span className="font-semibold text-neutral-dark">{dailyM.habitsCompleted}</span>
-                          <span className="text-neutral-dark/60">
-                            {" "}
-                            / {dailyM.habitsTotal} habits ({dailyM.completionPct}%)
-                          </span>
-                        </p>
-                        <p className="text-neutral-dark/70">
-                          Reminders done: <span className="font-medium">{dailyM.remindersCompleted}</span>
+                      <div className="flex items-center gap-4 p-4 rounded-2xl border border-neutral-dark/8 bg-gradient-to-br from-primary/10 via-surface to-accent/5">
+                        <DigestRing pct={dailyM.completionPct} size={80} />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-dark/40">Yesterday</p>
+                          <p className="text-lg font-bold text-neutral-dark truncate">{dailyM.periodLabel}</p>
+                          <p className="text-sm text-neutral-dark/65 mt-1">
+                            <span className="font-semibold text-primary">{dailyM.habitsCompleted}</span>
+                            <span className="text-neutral-dark/50">
+                              /{dailyM.habitsTotal} habits · {dailyM.completionPct}%
+                            </span>
+                          </p>
+                        </div>
+                      </div>
+                      <SectionBlock title="What you did" icon={Target} delay={0.05}>
+                        <p className="text-neutral-dark/75">
+                          Reminders done:{" "}
+                          <span className="font-semibold text-neutral-dark">{dailyM.remindersCompleted}</span>
                           {dailyM.remindersCompleted === 0 && (
-                            <span className="text-neutral-dark/40"> — counts from when you complete reminders in-app</span>
+                            <span className="text-neutral-dark/40 text-xs"> (tracked when you complete in-app)</span>
                           )}
                         </p>
                       </SectionBlock>
-                      <SectionBlock title="What you’re good at" delay={0.1}>
+                      <SectionBlock title="What you’re good at" icon={Award} delay={0.08} accent="from-accent/25 to-transparent">
                         <p>{dailyM.biggestWin}</p>
-                        <p className="text-neutral-dark/70">
-                          Streak (through yesterday):{" "}
-                          <span className="font-semibold text-primary">{dailyM.streakAsOfYesterday}</span> days
+                        <p className="text-neutral-dark/65 text-xs mt-1">
+                          Streak through yesterday:{" "}
+                          <span className="font-bold text-primary tabular-nums">{dailyM.streakAsOfYesterday}</span> days
                         </p>
                       </SectionBlock>
-                      <SectionBlock title="What to tighten" delay={0.15}>
+                      <SectionBlock title="What to tighten" icon={TrendingUp} delay={0.11} accent="from-amber-400/20 to-transparent">
                         {dailyM.missedHabitTitles.length === 0 ? (
-                          <p className="text-neutral-dark/60">Nothing missed—nice.</p>
+                          <p className="text-neutral-dark/55">Nothing missed.</p>
                         ) : (
-                          <ul className="list-disc list-inside text-neutral-dark/75">
+                          <ul className="space-y-1">
                             {dailyM.missedHabitTitles.map((t) => (
-                              <li key={t}>{t}</li>
+                              <li key={t} className="flex items-center gap-2 text-neutral-dark/75">
+                                <span className="w-1 h-1 rounded-full bg-amber-400 shrink-0" />
+                                {t}
+                              </li>
                             ))}
                           </ul>
                         )}
                       </SectionBlock>
-                      <SectionBlock title="Coach note" delay={0.2}>
-                        {aiLoading ? (
-                          <div className="flex items-center gap-2 text-neutral-dark/50">
+                      <SectionBlock title="Coach note" icon={Sparkles} delay={0.14}>
+                        {aiLoading && tab === "daily" ? (
+                          <div className="flex items-center gap-2 text-neutral-dark/45">
                             <motion.div
                               className="w-4 h-4 rounded-full border-2 border-primary/30 border-t-primary"
                               animate={{ rotate: 360 }}
-                              transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }}
+                              transition={{ duration: 0.75, repeat: Infinity, ease: "linear" }}
                             />
                             <span className="text-xs">Thinking…</span>
                           </div>
                         ) : (
-                          <p className="flex gap-2 items-start">
-                            <Sparkles size={16} className="text-primary shrink-0 mt-0.5" />
-                            <span>{aiText || dailyFallback(dailyM)}</span>
-                          </p>
+                          <p>{coachForTab || fallbackForTab}</p>
                         )}
                       </SectionBlock>
                     </>
@@ -401,53 +760,55 @@ function DigestModal({
 
                   {tab === "weekly" && (
                     <>
-                      <p className="text-xs text-neutral-dark/45">Week {weeklyM.periodLabel}</p>
-                      <SectionBlock title="What you did" delay={0.05}>
-                        <p>Avg completion: {weeklyM.avgCompletionPct}%</p>
-                        <p>Total habit checkoffs: {weeklyM.totalHabitCompletions}</p>
+                      <p className="text-[11px] text-neutral-dark/45 px-1">
+                        Saved snapshot · Week ending {weeklyM.end}
+                      </p>
+                      <WeeklyBars series={weeklySeries} />
+                      <div className="grid grid-cols-2 gap-3">
+                        <StatOrb value={`${weeklyM.avgCompletionPct}%`} label="Avg completion" delay={0.05} />
+                        <StatOrb value={weeklyM.totalHabitCompletions} label="Checkoffs" delay={0.08} />
+                      </div>
+                      <SectionBlock title="What you did" icon={Target} delay={0.06}>
                         {weeklyM.bestDay && weeklyM.worstDay && (
-                          <p className="text-neutral-dark/70 text-xs">
-                            Best day {weeklyM.bestDay.date} ({weeklyM.bestDay.pct}%), toughest {weeklyM.worstDay.date}{" "}
-                            ({weeklyM.worstDay.pct}%)
+                          <p className="text-xs text-neutral-dark/65">
+                            Best {weeklyM.bestDay.date} ({weeklyM.bestDay.pct}%) · Toughest {weeklyM.worstDay.date} (
+                            {weeklyM.worstDay.pct}%)
                           </p>
                         )}
                       </SectionBlock>
-                      <SectionBlock title="Strengths & gaps" delay={0.1}>
+                      <SectionBlock title="Strengths & gaps" icon={Award} delay={0.09}>
                         {weeklyM.strongestHabit && (
                           <p>
-                            Strongest:{" "}
-                            <span className="font-medium">{weeklyM.strongestHabit.title}</span> (
-                            {Math.round(weeklyM.strongestHabit.rate)}%)
+                            <span className="text-primary font-medium">{weeklyM.strongestHabit.title}</span>{" "}
+                            <span className="text-neutral-dark/50">
+                              ({Math.round(weeklyM.strongestHabit.rate)}%)
+                            </span>
                           </p>
                         )}
                         {weeklyM.weakestHabit && (
-                          <p className="text-neutral-dark/75">
+                          <p className="text-neutral-dark/65 text-xs mt-1">
                             Needs love: {weeklyM.weakestHabit.title} ({Math.round(weeklyM.weakestHabit.rate)}%)
                           </p>
                         )}
-                        {!weeklyM.hasData && <p className="text-neutral-dark/50 text-xs">Log habits this week to see patterns.</p>}
                       </SectionBlock>
-                      <SectionBlock title="Insight" delay={0.15}>
+                      <SectionBlock title="Insight" icon={Lightbulb} delay={0.12} accent="from-sky-400/15 to-transparent">
                         <p>{weeklyM.insight}</p>
                       </SectionBlock>
-                      <SectionBlock title="Try this" delay={0.18}>
+                      <SectionBlock title="Try this" icon={Calendar} delay={0.14}>
                         <p>{weeklyM.suggestion}</p>
                       </SectionBlock>
-                      <SectionBlock title="Coach note" delay={0.22}>
-                        {aiLoading ? (
-                          <div className="flex items-center gap-2 text-neutral-dark/50">
+                      <SectionBlock title="Coach note" icon={Sparkles} delay={0.16}>
+                        {aiLoading && tab === "weekly" && !coachForTab ? (
+                          <div className="flex items-center gap-2 text-neutral-dark/45">
                             <motion.div
                               className="w-4 h-4 rounded-full border-2 border-primary/30 border-t-primary"
                               animate={{ rotate: 360 }}
-                              transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }}
+                              transition={{ duration: 0.75, repeat: Infinity, ease: "linear" }}
                             />
                             <span className="text-xs">Thinking…</span>
                           </div>
                         ) : (
-                          <p className="flex gap-2 items-start">
-                            <Sparkles size={16} className="text-primary shrink-0 mt-0.5" />
-                            <span>{aiText || weeklyFallback(weeklyM)}</span>
-                          </p>
+                          <p>{coachForTab || fallbackForTab}</p>
                         )}
                       </SectionBlock>
                     </>
@@ -455,49 +816,50 @@ function DigestModal({
 
                   {tab === "monthly" && (
                     <>
-                      <p className="text-xs text-neutral-dark/45">Month {monthlyM.periodLabel}</p>
-                      <SectionBlock title="What you did" delay={0.05}>
-                        <p>Avg completion: {monthlyM.monthlyCompletionPct}%</p>
-                        <p>
-                          Habit checkoffs: {monthlyM.totalHabitCompletions} · Active days: {monthlyM.activeDays}
-                        </p>
+                      <p className="text-[11px] text-neutral-dark/45 px-1">Saved snapshot · {monthlyM.periodLabel}</p>
+                      <MonthCompareVisual current={monthlyM.monthlyCompletionPct} prior={monthlyM.priorMonthlyCompletionPct} />
+                      <div className="grid grid-cols-2 gap-3">
+                        <StatOrb value={monthlyM.activeDays} label="Active days" delay={0.05} />
+                        <StatOrb value={monthlyM.longestStreak} label="Best streak" sub="in month" delay={0.08} />
+                      </div>
+                      <SectionBlock title="What you did" icon={Target} delay={0.06}>
+                        <p className="tabular-nums">{monthlyM.totalHabitCompletions} habit checkoffs</p>
                         {monthlyM.improvementVsPrior != null && (
-                          <p className="text-neutral-dark/70">
+                          <p className="text-xs mt-1 text-neutral-dark/60">
                             vs prior month:{" "}
-                            <span className={monthlyM.improvementVsPrior >= 0 ? "text-primary font-medium" : "text-neutral-dark/60"}>
+                            <span
+                              className={
+                                monthlyM.improvementVsPrior >= 0 ? "text-primary font-semibold" : "text-neutral-dark/55"
+                              }
+                            >
                               {monthlyM.improvementVsPrior >= 0 ? "+" : ""}
                               {monthlyM.improvementVsPrior} pts
                             </span>
                           </p>
                         )}
                       </SectionBlock>
-                      <SectionBlock title="Trends" delay={0.1}>
-                        <p className="text-neutral-dark/80">
-                          Longest streak in month:{" "}
-                          <span className="font-semibold text-primary">{monthlyM.longestStreak}</span> days
-                        </p>
+                      <SectionBlock title="Trends" icon={TrendingUp} delay={0.09}>
                         {monthlyM.improving[0] && (
-                          <p className="text-primary text-xs mt-1">Up: {monthlyM.improving.map((h) => h.title).join(", ")}</p>
+                          <p className="text-primary text-xs">Up: {monthlyM.improving.map((h) => h.title).join(", ")}</p>
                         )}
                         {monthlyM.declining[0] && (
-                          <p className="text-neutral-dark/55 text-xs">Slipping: {monthlyM.declining.map((h) => h.title).join(", ")}</p>
+                          <p className="text-neutral-dark/50 text-xs mt-1">
+                            Slipping: {monthlyM.declining.map((h) => h.title).join(", ")}
+                          </p>
                         )}
                       </SectionBlock>
-                      <SectionBlock title="Coach note" delay={0.15}>
-                        {aiLoading ? (
-                          <div className="flex items-center gap-2 text-neutral-dark/50">
+                      <SectionBlock title="Coach note" icon={Sparkles} delay={0.12}>
+                        {aiLoading && tab === "monthly" && !coachForTab ? (
+                          <div className="flex items-center gap-2 text-neutral-dark/45">
                             <motion.div
                               className="w-4 h-4 rounded-full border-2 border-primary/30 border-t-primary"
                               animate={{ rotate: 360 }}
-                              transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }}
+                              transition={{ duration: 0.75, repeat: Infinity, ease: "linear" }}
                             />
                             <span className="text-xs">Thinking…</span>
                           </div>
                         ) : (
-                          <p className="flex gap-2 items-start">
-                            <Sparkles size={16} className="text-primary shrink-0 mt-0.5" />
-                            <span>{aiText || monthlyFallback(monthlyM)}</span>
-                          </p>
+                          <p>{coachForTab || fallbackForTab}</p>
                         )}
                       </SectionBlock>
                     </>
@@ -505,50 +867,48 @@ function DigestModal({
 
                   {tab === "yearly" && (
                     <>
-                      <p className="text-xs text-neutral-dark/45">{yearlyM.periodLabel}</p>
-                      <SectionBlock title="What you did" delay={0.05}>
-                        <p>Total habit checkoffs: {yearlyM.totalHabitCompletions}</p>
-                        <p>Avg completion: {yearlyM.avgCompletionPct}%</p>
-                        <p>
-                          Best streak: <span className="font-semibold text-primary">{yearlyM.bestStreak}</span> days
-                        </p>
-                      </SectionBlock>
-                      <SectionBlock title="Highlights & friction" delay={0.1}>
+                      <p className="text-[11px] text-neutral-dark/45 px-1">Saved snapshot · {yearlyM.periodLabel}</p>
+                      <div className="grid grid-cols-2 gap-3">
+                        <StatOrb value={yearlyM.totalHabitCompletions} label="Total checkoffs" delay={0.05} />
+                        <StatOrb value={`${yearlyM.avgCompletionPct}%`} label="Avg completion" delay={0.08} />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <StatOrb value={yearlyM.bestStreak} label="Best streak" sub="days" delay={0.1} />
+                        <StatOrb
+                          value={yearlyM.bestWeekday ?? "—"}
+                          label="Top weekday"
+                          sub={yearlyM.worstWeekday ? `Tough: ${yearlyM.worstWeekday}` : undefined}
+                          delay={0.12}
+                        />
+                      </div>
+                      <SectionBlock title="Consistency" icon={Flame} delay={0.08} accent="from-violet-400/15 to-transparent">
                         {yearlyM.mostConsistent && (
                           <p>
-                            Most consistent: <span className="font-medium">{yearlyM.mostConsistent.title}</span> (
+                            Most: <span className="font-medium text-primary">{yearlyM.mostConsistent.title}</span> (
                             {Math.round(yearlyM.mostConsistent.rate)}%)
                           </p>
                         )}
                         {yearlyM.leastConsistent && (
-                          <p className="text-neutral-dark/70">
-                            Least consistent: {yearlyM.leastConsistent.title} ({Math.round(yearlyM.leastConsistent.rate)}%)
-                          </p>
-                        )}
-                        {yearlyM.bestWeekday && yearlyM.worstWeekday && (
-                          <p className="text-xs text-neutral-dark/60 mt-1">
-                            Best weekday: {yearlyM.bestWeekday} · Toughest: {yearlyM.worstWeekday}
+                          <p className="text-xs text-neutral-dark/55 mt-1">
+                            Least: {yearlyM.leastConsistent.title} ({Math.round(yearlyM.leastConsistent.rate)}%)
                           </p>
                         )}
                       </SectionBlock>
-                      <SectionBlock title="Big picture" delay={0.14}>
+                      <SectionBlock title="Big picture" icon={Lightbulb} delay={0.1}>
                         <p>{yearlyM.biggestImprovementBlurb}</p>
                       </SectionBlock>
-                      <SectionBlock title="Reflection & next step" delay={0.18}>
-                        {aiLoading ? (
-                          <div className="flex items-center gap-2 text-neutral-dark/50">
+                      <SectionBlock title="Reflection & next step" icon={Sparkles} delay={0.12}>
+                        {aiLoading && tab === "yearly" && !coachForTab ? (
+                          <div className="flex items-center gap-2 text-neutral-dark/45">
                             <motion.div
                               className="w-4 h-4 rounded-full border-2 border-primary/30 border-t-primary"
                               animate={{ rotate: 360 }}
-                              transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }}
+                              transition={{ duration: 0.75, repeat: Infinity, ease: "linear" }}
                             />
                             <span className="text-xs">Thinking…</span>
                           </div>
                         ) : (
-                          <p className="flex gap-2 items-start">
-                            <Sparkles size={16} className="text-primary shrink-0 mt-0.5" />
-                            <span>{aiText || yearlyFallback(yearlyM)}</span>
-                          </p>
+                          <p>{coachForTab || fallbackForTab}</p>
                         )}
                       </SectionBlock>
                     </>
@@ -613,18 +973,21 @@ export default function DigestWidget({
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.45, ease: [0.25, 0.1, 0.25, 1] }}
           >
-            <Card className="p-5 min-h-[100px] border-primary-light/30">
-              <div className="flex flex-col items-center justify-center text-center py-2">
-                <ScrollText size={28} className="text-neutral-dark/30 mb-2" />
-                <h3 className="text-sm font-semibold text-neutral-dark/70 mb-1">Digest</h3>
-                <p className="text-xs text-neutral-dark/50 mb-3 max-w-xs">
-                  Daily, weekly, and monthly summaries of your habits and reminders—Pro and Max only.
+            <Card className="p-5 min-h-[112px] border-primary-light/30 overflow-hidden relative">
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/8 via-transparent to-accent/10 pointer-events-none" />
+              <div className="relative flex flex-col items-center justify-center text-center py-2">
+                <div className="w-12 h-12 rounded-2xl bg-primary/15 flex items-center justify-center mb-2">
+                  <ScrollText size={26} className="text-primary/70" />
+                </div>
+                <h3 className="text-sm font-bold text-neutral-dark/80 mb-1">Digest</h3>
+                <p className="text-xs text-neutral-dark/50 mb-3 max-w-xs leading-relaxed">
+                  Summaries that refresh on your schedule—daily, weekly, monthly, and yearly. Pro and Max only.
                 </p>
                 <ClickSpark sparkColor="#7FAF8F" sparkSize={10} sparkRadius={18} className="inline-flex">
                   <button
                     type="button"
                     onClick={() => setShowPlansModal(true)}
-                    className="px-4 py-2 rounded-xl bg-primary text-white text-sm font-medium hover:bg-primary/90 transition-colors"
+                    className="px-4 py-2 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors shadow-sm"
                   >
                     Upgrade to access
                   </button>
@@ -647,32 +1010,44 @@ export default function DigestWidget({
                 onKeyDown={(e) => e.key === "Enter" && setModalOpen(true)}
                 className="cursor-pointer"
               >
-                <Card className="hover:border-primary/50 transition-colors p-5 min-h-[100px]">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 space-y-1">
-                      <h3 className="text-sm font-semibold text-neutral-dark/70 flex items-center gap-2">
-                        <ScrollText size={16} />
-                        Digest
-                      </h3>
-                      <p className="text-xs text-neutral-dark/55">Yesterday · {yesterdayYmd}</p>
+                <Card className="hover:border-primary/40 transition-all p-0 min-h-[112px] overflow-hidden border-neutral-dark/10 shadow-sm hover:shadow-md">
+                  <div className="relative flex items-stretch">
+                    <div className="w-[5px] bg-gradient-to-b from-primary via-primary-light to-accent shrink-0" />
+                    <div className="flex-1 p-4 flex items-center gap-4">
                       {dailyPreview.habitsTotal > 0 ? (
-                        <p className="text-sm text-neutral-dark/80">
-                          <span className="font-semibold text-primary">{dailyPreview.completionPct}%</span>
-                          <span className="text-neutral-dark/60">
-                            {" "}
-                            · {dailyPreview.habitsCompleted}/{dailyPreview.habitsTotal} habits
-                          </span>
-                          {dailyPreview.remindersCompleted > 0 && (
-                            <span className="text-neutral-dark/50"> · {dailyPreview.remindersCompleted} reminders</span>
-                          )}
-                        </p>
+                        <DigestRing pct={dailyPreview.completionPct} size={72} />
                       ) : (
-                        <p className="text-xs text-neutral-dark/50">Add habits to see your daily snapshot here.</p>
+                        <div className="w-[72px] h-[72px] rounded-full border-2 border-dashed border-neutral-dark/15 flex items-center justify-center shrink-0">
+                          <ScrollText size={28} className="text-neutral-dark/25" />
+                        </div>
                       )}
-                      <p className="text-xs text-primary font-medium mt-2 flex items-center gap-0.5">
-                        Open full digest
-                        <ChevronRight size={14} />
-                      </p>
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <h3 className="text-sm font-bold text-neutral-dark/80 flex items-center gap-2">
+                          Digest
+                          <span className="text-[9px] font-semibold uppercase tracking-wide text-primary/80 px-1.5 py-0.5 rounded-md bg-primary/10">
+                            Live daily
+                          </span>
+                        </h3>
+                        <p className="text-[11px] text-neutral-dark/45">Yesterday · {yesterdayYmd}</p>
+                        {dailyPreview.habitsTotal > 0 ? (
+                          <p className="text-sm text-neutral-dark/80">
+                            <span className="font-bold text-primary tabular-nums">{dailyPreview.completionPct}%</span>
+                            <span className="text-neutral-dark/55">
+                              {" "}
+                              · {dailyPreview.habitsCompleted}/{dailyPreview.habitsTotal} habits
+                            </span>
+                            {dailyPreview.remindersCompleted > 0 && (
+                              <span className="text-neutral-dark/45"> · {dailyPreview.remindersCompleted} reminders</span>
+                            )}
+                          </p>
+                        ) : (
+                          <p className="text-xs text-neutral-dark/50">Add habits to see your snapshot.</p>
+                        )}
+                        <p className="text-xs text-primary font-semibold mt-1 flex items-center gap-0.5">
+                          Open full digest
+                          <ChevronRight size={14} />
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </Card>
