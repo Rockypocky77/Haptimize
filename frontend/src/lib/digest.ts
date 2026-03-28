@@ -40,6 +40,11 @@ export function getYesterdayYmd(now: Date = new Date()): string {
   return ymd(addDays(now, -1));
 }
 
+/** localStorage period key for the daily digest coach note (one per calendar “yesterday”). */
+export function getDailyDigestPeriodKey(now: Date = new Date()): string {
+  return `d-${getYesterdayYmd(now)}`;
+}
+
 /**
  * Last completed Sun–Sat week, ending on the most recent Saturday strictly before "today"
  * (if today is Saturday, uses the previous Saturday as week end).

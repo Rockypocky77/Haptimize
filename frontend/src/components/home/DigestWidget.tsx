@@ -20,6 +20,7 @@ import {
   digestMonthlyAiContext,
   digestYearlyAiContext,
   getYesterdayYmd,
+  getDailyDigestPeriodKey,
   getWeeklyDigestPeriodKey,
   getMonthlyDigestPeriodKey,
   getYearlyDigestPeriodKey,
@@ -30,6 +31,8 @@ import {
   type DigestYearlyModel,
 } from "@/lib/digest";
 import {
+  loadDailyCoachSnapshot,
+  saveDailyCoachSnapshot,
   loadWeeklySnapshot,
   saveWeeklySnapshot,
   loadMonthlySnapshot,
@@ -348,6 +351,14 @@ function DigestModal({
     () => buildDigestDailyModel(activeHabits, habitLogs, streakThreshold, digestNow),
     [activeHabits, habitLogs, streakThreshold, digestNow]
   );
+  const dailyMRef = useRef(dailyM);
+  dailyMRef.current = dailyM;
+  const aiWeeklyRef = useRef(aiWeekly);
+  aiWeeklyRef.current = aiWeekly;
+  const aiMonthlyRef = useRef(aiMonthly);
+  aiMonthlyRef.current = aiMonthly;
+  const aiYearlyRef = useRef(aiYearly);
+  aiYearlyRef.current = aiYearly;
 
   const liveWeekly = useMemo(
     () => buildDigestWeeklyModel(activeHabits, habitLogs, digestNow),
@@ -455,28 +466,42 @@ function DigestModal({
     let cancelled = false;
 
     const runDaily = async () => {
-      const fallback = dailyFallback(dailyM);
+      const m = dailyMRef.current;
+      const pk = getDailyDigestPeriodKey(digestNow);
+      const stored = loadDailyCoachSnapshot(userId, isDemo, pk);
+      if (stored?.aiText) {
+        setAiDaily(stored.aiText);
+        setAiLoading(false);
+        return;
+      }
+
+      const fallback = dailyFallback(m);
       if (isDemo || !aiEnabled || !userId) {
         setAiDaily(fallback);
+        if (userId && !isDemo) saveDailyCoachSnapshot(userId, pk, fallback);
         setAiLoading(false);
         return;
       }
       setAiLoading(true);
       setAiDaily("");
-      const message = `[Digest assistant] Habits only—no tasks or reminders. In one or two short friendly sentences (no bullet points, no lists), react to this summary only. Do not give medical or legal advice.\n\n${digestDailyAiContext(dailyM)}`;
+      const message = `[Digest assistant] Habits only—no tasks or reminders. In one or two short friendly sentences (no bullet points, no lists), react to this summary only. Do not give medical or legal advice.\n\n${digestDailyAiContext(m)}`;
       const res = await api.aiChat(message, userId, [], false);
       if (cancelled) return;
       const reply = typeof res.reply === "string" ? res.reply.trim() : "";
-      setAiDaily(res.ok && reply ? reply : fallback);
+      const text = res.ok && reply ? reply : fallback;
+      setAiDaily(text);
+      if (userId) saveDailyCoachSnapshot(userId, pk, text);
       setAiLoading(false);
     };
 
     const runWeekly = async () => {
       const m = frozenWeekly ?? liveWeekly;
       const pk = getWeeklyDigestPeriodKey(digestNow);
-      if (loadWeeklySnapshot(userId, isDemo, pk)?.aiText) return;
-      const existing = aiWeekly;
-      if (existing) return;
+      if (loadWeeklySnapshot(userId, isDemo, pk)?.aiText) {
+        setAiLoading(false);
+        return;
+      }
+      if (aiWeeklyRef.current) return;
 
       const fallback = weeklyFallback(m);
       if (isDemo || !aiEnabled || !userId) {
@@ -498,8 +523,11 @@ function DigestModal({
     const runMonthly = async () => {
       const m = frozenMonthly ?? liveMonthly;
       const pk = getMonthlyDigestPeriodKey(digestNow);
-      if (loadMonthlySnapshot(userId, isDemo, pk)?.aiText) return;
-      if (aiMonthly) return;
+      if (loadMonthlySnapshot(userId, isDemo, pk)?.aiText) {
+        setAiLoading(false);
+        return;
+      }
+      if (aiMonthlyRef.current) return;
 
       const fallback = monthlyFallback(m);
       if (isDemo || !aiEnabled || !userId) {
@@ -521,8 +549,11 @@ function DigestModal({
     const runYearly = async () => {
       const m = frozenYearly ?? liveYearly;
       const pk = getYearlyDigestPeriodKey(digestNow);
-      if (loadYearlySnapshot(userId, isDemo, pk)?.aiText) return;
-      if (aiYearly) return;
+      if (loadYearlySnapshot(userId, isDemo, pk)?.aiText) {
+        setAiLoading(false);
+        return;
+      }
+      if (aiYearlyRef.current) return;
 
       const fallback = yearlyFallback(m);
       if (isDemo || !aiEnabled || !userId) {
@@ -556,7 +587,7 @@ function DigestModal({
     open,
     tab,
     tabAvail,
-    dailyM,
+    dailyM.dateYmd,
     frozenWeekly,
     frozenMonthly,
     frozenYearly,
@@ -567,9 +598,6 @@ function DigestModal({
     userId,
     aiEnabled,
     isDemo,
-    aiWeekly,
-    aiMonthly,
-    aiYearly,
     pinnedWeeklyBars,
   ]);
 

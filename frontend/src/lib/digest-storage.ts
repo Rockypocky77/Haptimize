@@ -1,6 +1,6 @@
 /**
- * Persists weekly / monthly / yearly digest snapshots in localStorage so they do not
- * change day-to-day until the period rolls (daily is never stored here).
+ * Persists digest coach notes in localStorage: one AI message per period (daily = yesterday’s date,
+ * weekly / monthly / yearly = their respective period keys) until the period rolls.
  */
 import type { DigestWeeklyModel, DigestMonthlyModel, DigestYearlyModel } from "@/lib/digest";
 
@@ -28,6 +28,30 @@ function write(uid: string, tab: string, periodKey: string, payload: unknown): v
   } catch {
     /* quota / private mode */
   }
+}
+
+export interface DailyDigestStored {
+  periodKey: string;
+  aiText: string;
+  savedAt: string;
+}
+
+export function loadDailyCoachSnapshot(
+  uid: string | null | undefined,
+  isDemo: boolean,
+  periodKey: string
+): DailyDigestStored | null {
+  const o = read<DailyDigestStored>(uid, isDemo, "daily", periodKey);
+  if (!o || o.periodKey !== periodKey) return null;
+  return o;
+}
+
+export function saveDailyCoachSnapshot(uid: string, periodKey: string, aiText: string): void {
+  write(uid, "daily", periodKey, {
+    periodKey,
+    aiText,
+    savedAt: new Date().toISOString(),
+  } satisfies DailyDigestStored);
 }
 
 export type WeeklyBarPoint = { date: string; pct: number; dayShort: string };
