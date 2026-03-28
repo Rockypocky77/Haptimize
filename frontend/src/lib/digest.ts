@@ -1,5 +1,5 @@
 /**
- * Digest / summary metrics for Pro home widget (habits only).
+ * Recap / summary metrics for Pro home widget (habits only).
  */
 import {
   computeStrongestWeakestHabits,
@@ -40,7 +40,7 @@ export function getYesterdayYmd(now: Date = new Date()): string {
   return ymd(addDays(now, -1));
 }
 
-/** localStorage period key for the daily digest coach note (one per calendar “yesterday”). */
+/** localStorage period key for the daily recap Hapti note (one per calendar “yesterday”). */
 export function getDailyDigestPeriodKey(now: Date = new Date()): string {
   return `d-${getYesterdayYmd(now)}`;
 }
@@ -622,7 +622,7 @@ export function buildDigestYearlyModel(
 /** Plain-text lines for AI prompts (no PII beyond habit titles). */
 export function digestDailyAiContext(m: DigestDailyModel): string {
   return [
-    "Daily habit digest (yesterday only).",
+    "Daily habit recap (yesterday only).",
     `Completion: ${m.completionPct}% (${m.habitsCompleted}/${m.habitsTotal} habits).`,
     `Streak (as of yesterday): ${m.streakAsOfYesterday} days.`,
     m.missedHabitTitles.length ? `Missed habits: ${m.missedHabitTitles.slice(0, 5).join(", ")}` : "No missed habits.",
@@ -631,7 +631,7 @@ export function digestDailyAiContext(m: DigestDailyModel): string {
 
 export function digestWeeklyAiContext(m: DigestWeeklyModel): string {
   return [
-    "Weekly digest.",
+    "Weekly recap.",
     `Avg completion ${m.avgCompletionPct}%.`,
     m.strongestHabit ? `Strongest habit: ${m.strongestHabit.title} (${Math.round(m.strongestHabit.rate)}%).` : "",
     m.weakestHabit ? `Weakest: ${m.weakestHabit.title} (${Math.round(m.weakestHabit.rate)}%).` : "",
@@ -643,7 +643,7 @@ export function digestWeeklyAiContext(m: DigestWeeklyModel): string {
 
 export function digestMonthlyAiContext(m: DigestMonthlyModel): string {
   return [
-    "Monthly digest.",
+    "Monthly recap.",
     `Avg completion ${m.monthlyCompletionPct}%.`,
     m.improvementVsPrior != null ? `Vs prior month: ${m.improvementVsPrior >= 0 ? "+" : ""}${m.improvementVsPrior} pts.` : "",
     `Active days: ${m.activeDays}. Longest streak in month: ${m.longestStreak}.`,
@@ -656,7 +656,7 @@ export function digestMonthlyAiContext(m: DigestMonthlyModel): string {
 
 export function digestYearlyAiContext(m: DigestYearlyModel): string {
   return [
-    `Yearly digest (${m.periodLabel}).`,
+    `Yearly recap (${m.periodLabel}).`,
     `Avg completion ${m.avgCompletionPct}%, total habit checkoffs ${m.totalHabitCompletions}.`,
     `Best streak: ${m.bestStreak} days.`,
     m.mostConsistent ? `Most consistent: ${m.mostConsistent.title}.` : "",

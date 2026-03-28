@@ -268,7 +268,7 @@ function SectionBlock({
 }
 
 function dailyFallback(m: DigestDailyModel): string {
-  if (m.habitsTotal === 0) return "Add a few habits—your digest will light up here.";
+  if (m.habitsTotal === 0) return "Add a few habits—your recap will light up here.";
   if (m.completionPct >= 90) return "Outstanding—you nearly cleared the board.";
   if (m.completionPct >= 70) return "Strong day—keep riding this momentum.";
   if (m.completionPct >= 40) return "Solid progress—tomorrow is another shot at the full set.";
@@ -484,7 +484,7 @@ function DigestModal({
       }
       setAiLoading(true);
       setAiDaily("");
-      const message = `[Digest assistant] Habits only—no tasks or reminders. In one or two short friendly sentences (no bullet points, no lists), react to this summary only. Do not give medical or legal advice.\n\n${digestDailyAiContext(m)}`;
+      const message = `[Recap assistant] Habits only—no tasks or reminders. In one or two short friendly sentences (no bullet points, no lists), react to this summary only. Do not give medical or legal advice.\n\n${digestDailyAiContext(m)}`;
       const res = await api.aiChat(message, userId, [], false);
       if (cancelled) return;
       const reply = typeof res.reply === "string" ? res.reply.trim() : "";
@@ -510,7 +510,7 @@ function DigestModal({
         return;
       }
       setAiLoading(true);
-      const message = `[Digest assistant] Habit patterns only. In one or two short friendly sentences (no bullet points, no lists), react to this summary only. Do not give medical or legal advice.\n\n${digestWeeklyAiContext(m)}`;
+      const message = `[Recap assistant] Habit patterns only. In one or two short friendly sentences (no bullet points, no lists), react to this summary only. Do not give medical or legal advice.\n\n${digestWeeklyAiContext(m)}`;
       const res = await api.aiChat(message, userId, [], false);
       if (cancelled) return;
       const reply = typeof res.reply === "string" ? res.reply.trim() : "";
@@ -536,7 +536,7 @@ function DigestModal({
         return;
       }
       setAiLoading(true);
-      const message = `[Digest assistant] Habit progress only. In one or two short friendly sentences (no bullet points, no lists), react to this summary only. Do not give medical or legal advice.\n\n${digestMonthlyAiContext(m)}`;
+      const message = `[Recap assistant] Habit progress only. In one or two short friendly sentences (no bullet points, no lists), react to this summary only. Do not give medical or legal advice.\n\n${digestMonthlyAiContext(m)}`;
       const res = await api.aiChat(message, userId, [], false);
       if (cancelled) return;
       const reply = typeof res.reply === "string" ? res.reply.trim() : "";
@@ -562,7 +562,7 @@ function DigestModal({
         return;
       }
       setAiLoading(true);
-      const message = `[Digest assistant] Habit consistency only. In two short friendly sentences (no bullet points): reflect on the period, then one habit-focused thought for going forward. Do not give medical or legal advice.\n\n${digestYearlyAiContext(m)}`;
+      const message = `[Recap assistant] Habit consistency only. In two short friendly sentences (no bullet points): reflect on the period, then one habit-focused thought for going forward. Do not give medical or legal advice.\n\n${digestYearlyAiContext(m)}`;
       const res = await api.aiChat(message, userId, [], false);
       if (cancelled) return;
       const reply = typeof res.reply === "string" ? res.reply.trim() : "";
@@ -655,7 +655,7 @@ function DigestModal({
                 <div>
                   <h3 className="text-lg font-bold text-neutral-dark flex items-center gap-2">
                     <ScrollText size={22} className="text-primary" />
-                    Digest
+                    Recap
                   </h3>
                   <p className="text-[11px] text-neutral-dark/45 mt-0.5">{TAB_HINT[tab]}</p>
                 </div>
@@ -992,9 +992,9 @@ export default function DigestWidget({
                 <div className="w-12 h-12 rounded-2xl bg-primary/15 flex items-center justify-center mb-2">
                   <ScrollText size={26} className="text-primary/70" />
                 </div>
-                <h3 className="text-sm font-bold text-neutral-dark/80 mb-1">Digest</h3>
+                <h3 className="text-sm font-bold text-neutral-dark/80 mb-1">Recap</h3>
                 <p className="text-xs text-neutral-dark/50 mb-3 max-w-xs leading-relaxed">
-                  Habit summaries that refresh on your schedule—daily, weekly, monthly, and yearly. Pro and Max only.
+                  Habit recaps that refresh on your schedule—daily, weekly, monthly, and yearly. Pro and Max only.
                 </p>
                 <ClickSpark sparkColor="#7FAF8F" sparkSize={10} sparkRadius={18} className="inline-flex">
                   <button
@@ -1036,7 +1036,7 @@ export default function DigestWidget({
                       )}
                       <div className="min-w-0 flex-1 space-y-1">
                         <h3 className="text-sm font-bold text-neutral-dark/80 flex items-center gap-2">
-                          Digest
+                          Recap
                           <span className="text-[9px] font-semibold uppercase tracking-wide text-primary/80 px-1.5 py-0.5 rounded-md bg-primary/10">
                             Live daily
                           </span>
@@ -1054,7 +1054,7 @@ export default function DigestWidget({
                           <p className="text-xs text-neutral-dark/50">Add habits to see your snapshot.</p>
                         )}
                         <p className="text-xs text-primary font-semibold mt-1 flex items-center gap-0.5">
-                          Open full digest
+                          Open full recap
                           <ChevronRight size={14} />
                         </p>
                       </div>

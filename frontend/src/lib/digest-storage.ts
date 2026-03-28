@@ -1,5 +1,5 @@
 /**
- * Persists digest coach notes in localStorage: one AI message per period (daily = yesterday’s date,
+ * Persists recap Hapti notes in localStorage: one AI message per period (daily = yesterday’s date,
  * weekly / monthly / yearly = their respective period keys) until the period rolls.
  */
 import type { DigestWeeklyModel, DigestMonthlyModel, DigestYearlyModel } from "@/lib/digest";
