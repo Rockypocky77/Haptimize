@@ -671,7 +671,7 @@ function DigestModal({
               </div>
             </div>
 
-            <div className="px-3 pt-2 pb-1 border-b border-neutral-dark/6 shrink-0 bg-neutral-light/20">
+            <div className="px-3 pt-2 pb-1 border-b border-neutral-dark/6 dark:border-white/10 shrink-0 bg-neutral-light/20 dark:bg-muted/35">
               <div className="flex gap-0.5 overflow-x-auto pb-1 scrollbar-thin">
                 {TAB_ORDER.map((id) => {
                   const enabled = tabAvail[id];
@@ -692,8 +692,16 @@ function DigestModal({
                       onClick={() => enabled && setTab(id)}
                       className={`
                         relative flex items-center gap-2 px-3 py-2.5 rounded-xl whitespace-nowrap transition-all text-sm font-semibold
-                        ${enabled ? "text-neutral-dark/85 hover:bg-white/60 cursor-pointer" : "text-neutral-dark/28 cursor-not-allowed"}
-                        ${tab === id && enabled ? "bg-white shadow-sm text-primary" : ""}
+                        ${
+                          enabled
+                            ? "text-neutral-dark/85 dark:text-neutral-dark/90 hover:bg-white/60 dark:hover:bg-white/[0.07] cursor-pointer"
+                            : "text-neutral-dark/28 dark:text-neutral-dark/38 cursor-not-allowed"
+                        }
+                        ${
+                          tab === id && enabled
+                            ? "bg-white shadow-sm text-primary dark:bg-muted dark:shadow-none dark:ring-1 dark:ring-white/12 dark:text-primary"
+                            : ""
+                        }
                       `}
                       aria-disabled={!enabled}
                     >
@@ -702,7 +710,7 @@ function DigestModal({
                       {tab === id && enabled && (
                         <motion.span
                           layoutId="digestTabPill"
-                          className="absolute inset-0 rounded-xl border-2 border-primary/25 pointer-events-none"
+                          className="absolute inset-0 rounded-xl border-2 border-primary/25 dark:border-primary/45 pointer-events-none"
                           transition={{ type: "spring", stiffness: 400, damping: 32 }}
                         />
                       )}
