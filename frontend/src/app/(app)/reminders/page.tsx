@@ -34,9 +34,7 @@ import {
   updateDoc,
   deleteDoc,
   serverTimestamp,
-  increment,
 } from "@/lib/firebase/client";
-import { DIGEST_DAILY_SUBCOLLECTION } from "@/lib/digest";
 import { toast } from "sonner";
 import { Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import { useDemoGuard } from "@/components/ui/DemoGate";
@@ -317,23 +315,6 @@ export default function RemindersPage() {
         const subCol = rem.reminderType === "casual" ? "casual" : "dated";
         const ref = doc(db, "reminders", profile.uid, subCol, id);
         await updateDoc(ref, { completed: nowCompleted });
-        if (!isDemo) {
-          const dayKey = getLocalDateString();
-          const digestRef = doc(db, "users", profile.uid, DIGEST_DAILY_SUBCOLLECTION, dayKey);
-          if (nowCompleted) {
-            await setDoc(
-              digestRef,
-              { remindersCompleted: increment(1) },
-              { merge: true }
-            );
-          } else if (wasCompleted) {
-            await setDoc(
-              digestRef,
-              { remindersCompleted: increment(-1) },
-              { merge: true }
-            );
-          }
-        }
       } catch {
         setReminders((prev) =>
           prev.map((r) => (r.id === id ? { ...r, completed: wasCompleted } : r))
@@ -350,7 +331,7 @@ export default function RemindersPage() {
         undoTimeoutsRef.current.set(id, t);
       }
     },
-    [profile?.uid, reminders, removeReminder, guardAction, isDemo]
+    [profile?.uid, reminders, removeReminder, guardAction]
   );
 
   const moveReminderToDate = useCallback(

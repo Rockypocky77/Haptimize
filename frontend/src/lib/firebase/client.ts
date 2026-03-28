@@ -27,7 +27,6 @@ import {
   deleteDoc,
   orderBy,
   serverTimestamp,
-  increment,
   type Firestore,
 } from "firebase/firestore";
 
@@ -100,6 +99,5 @@ export {
   deleteDoc,
   orderBy,
   serverTimestamp,
-  increment,
   type User,
 };

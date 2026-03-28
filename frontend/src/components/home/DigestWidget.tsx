@@ -45,7 +45,6 @@ import {
   ScrollText,
   Target,
   TrendingUp,
-  Calendar,
   Flame,
   Lightbulb,
   Award,
@@ -60,7 +59,6 @@ interface DigestWidgetProps {
   isDemo: boolean;
   plan?: PlanTier;
   streakThreshold: number;
-  reminderStatsByDate: Record<string, number>;
   signupAt: Date | null;
   userId?: string | null;
   aiEnabled: boolean;
@@ -316,7 +314,6 @@ function DigestModal({
   activeHabits,
   habitLogs,
   streakThreshold,
-  reminderStatsByDate,
   tabAvail,
   userId,
   aiEnabled,
@@ -327,7 +324,6 @@ function DigestModal({
   activeHabits: HabitRef[];
   habitLogs: HabitLog[];
   streakThreshold: number;
-  reminderStatsByDate: Record<string, number>;
   tabAvail: ReturnType<typeof getDigestTabAvailability>;
   userId: string | null | undefined;
   aiEnabled: boolean;
@@ -349,8 +345,8 @@ function DigestModal({
   const [aiLoading, setAiLoading] = useState(false);
 
   const dailyM = useMemo(
-    () => buildDigestDailyModel(activeHabits, habitLogs, streakThreshold, reminderStatsByDate, digestNow),
-    [activeHabits, habitLogs, streakThreshold, reminderStatsByDate, digestNow]
+    () => buildDigestDailyModel(activeHabits, habitLogs, streakThreshold, digestNow),
+    [activeHabits, habitLogs, streakThreshold, digestNow]
   );
 
   const liveWeekly = useMemo(
@@ -467,7 +463,7 @@ function DigestModal({
       }
       setAiLoading(true);
       setAiDaily("");
-      const message = `[Digest assistant] In one or two short friendly sentences (no bullet points, no lists), react to this summary only. Do not give medical or legal advice.\n\n${digestDailyAiContext(dailyM)}`;
+      const message = `[Digest assistant] Habits only—no tasks or reminders. In one or two short friendly sentences (no bullet points, no lists), react to this summary only. Do not give medical or legal advice.\n\n${digestDailyAiContext(dailyM)}`;
       const res = await api.aiChat(message, userId, [], false);
       if (cancelled) return;
       const reply = typeof res.reply === "string" ? res.reply.trim() : "";
@@ -489,7 +485,7 @@ function DigestModal({
         return;
       }
       setAiLoading(true);
-      const message = `[Digest assistant] In one or two short friendly sentences (no bullet points, no lists), react to this summary only. Do not give medical or legal advice.\n\n${digestWeeklyAiContext(m)}`;
+      const message = `[Digest assistant] Habit patterns only. In one or two short friendly sentences (no bullet points, no lists), react to this summary only. Do not give medical or legal advice.\n\n${digestWeeklyAiContext(m)}`;
       const res = await api.aiChat(message, userId, [], false);
       if (cancelled) return;
       const reply = typeof res.reply === "string" ? res.reply.trim() : "";
@@ -512,7 +508,7 @@ function DigestModal({
         return;
       }
       setAiLoading(true);
-      const message = `[Digest assistant] In one or two short friendly sentences (no bullet points, no lists), react to this summary only. Do not give medical or legal advice.\n\n${digestMonthlyAiContext(m)}`;
+      const message = `[Digest assistant] Habit progress only. In one or two short friendly sentences (no bullet points, no lists), react to this summary only. Do not give medical or legal advice.\n\n${digestMonthlyAiContext(m)}`;
       const res = await api.aiChat(message, userId, [], false);
       if (cancelled) return;
       const reply = typeof res.reply === "string" ? res.reply.trim() : "";
@@ -535,7 +531,7 @@ function DigestModal({
         return;
       }
       setAiLoading(true);
-      const message = `[Digest assistant] In two short friendly sentences (no bullet points): first reflect on the period, then one concrete next step. Do not give medical or legal advice.\n\n${digestYearlyAiContext(m)}`;
+      const message = `[Digest assistant] Habit consistency only. In two short friendly sentences (no bullet points): reflect on the period, then one habit-focused thought for going forward. Do not give medical or legal advice.\n\n${digestYearlyAiContext(m)}`;
       const res = await api.aiChat(message, userId, [], false);
       if (cancelled) return;
       const reply = typeof res.reply === "string" ? res.reply.trim() : "";
@@ -713,23 +709,14 @@ function DigestModal({
                           </p>
                         </div>
                       </div>
-                      <SectionBlock title="What you did" icon={Target} delay={0.05}>
-                        <p className="text-neutral-dark/75">
-                          Reminders done:{" "}
-                          <span className="font-semibold text-neutral-dark">{dailyM.remindersCompleted}</span>
-                          {dailyM.remindersCompleted === 0 && (
-                            <span className="text-neutral-dark/40 text-xs"> (tracked when you complete in-app)</span>
-                          )}
-                        </p>
-                      </SectionBlock>
-                      <SectionBlock title="What you’re good at" icon={Award} delay={0.08} accent="from-accent/25 to-transparent">
+                      <SectionBlock title="What you’re good at" icon={Award} delay={0.05} accent="from-accent/25 to-transparent">
                         <p>{dailyM.biggestWin}</p>
                         <p className="text-neutral-dark/65 text-xs mt-1">
                           Streak through yesterday:{" "}
                           <span className="font-bold text-primary tabular-nums">{dailyM.streakAsOfYesterday}</span> days
                         </p>
                       </SectionBlock>
-                      <SectionBlock title="What to tighten" icon={TrendingUp} delay={0.11} accent="from-amber-400/20 to-transparent">
+                      <SectionBlock title="What to tighten" icon={TrendingUp} delay={0.09} accent="from-amber-400/20 to-transparent">
                         {dailyM.missedHabitTitles.length === 0 ? (
                           <p className="text-neutral-dark/55">Nothing missed.</p>
                         ) : (
@@ -743,7 +730,7 @@ function DigestModal({
                           </ul>
                         )}
                       </SectionBlock>
-                      <SectionBlock title="Coach note" icon={Sparkles} delay={0.14}>
+                      <SectionBlock title="Coach note" icon={Sparkles} delay={0.12}>
                         {aiLoading && tab === "daily" ? (
                           <div className="flex items-center gap-2 text-neutral-dark/45">
                             <motion.div
@@ -796,10 +783,7 @@ function DigestModal({
                       <SectionBlock title="Insight" icon={Lightbulb} delay={0.12} accent="from-sky-400/15 to-transparent">
                         <p>{weeklyM.insight}</p>
                       </SectionBlock>
-                      <SectionBlock title="Try this" icon={Calendar} delay={0.14}>
-                        <p>{weeklyM.suggestion}</p>
-                      </SectionBlock>
-                      <SectionBlock title="Coach note" icon={Sparkles} delay={0.16}>
+                      <SectionBlock title="Coach note" icon={Sparkles} delay={0.14}>
                         {aiLoading && tab === "weekly" && !coachForTab ? (
                           <div className="flex items-center gap-2 text-neutral-dark/45">
                             <motion.div
@@ -934,7 +918,6 @@ export default function DigestWidget({
   isDemo,
   plan = "free",
   streakThreshold,
-  reminderStatsByDate,
   signupAt,
   userId,
   aiEnabled,
@@ -949,8 +932,8 @@ export default function DigestWidget({
   );
 
   const dailyPreview = useMemo(
-    () => buildDigestDailyModel(activeHabits, habitLogs, streakThreshold, reminderStatsByDate),
-    [activeHabits, habitLogs, streakThreshold, reminderStatsByDate]
+    () => buildDigestDailyModel(activeHabits, habitLogs, streakThreshold),
+    [activeHabits, habitLogs, streakThreshold]
   );
 
   const yesterdayYmd = getYesterdayYmd();
@@ -983,7 +966,7 @@ export default function DigestWidget({
                 </div>
                 <h3 className="text-sm font-bold text-neutral-dark/80 mb-1">Digest</h3>
                 <p className="text-xs text-neutral-dark/50 mb-3 max-w-xs leading-relaxed">
-                  Summaries that refresh on your schedule—daily, weekly, monthly, and yearly. Pro and Max only.
+                  Habit summaries that refresh on your schedule—daily, weekly, monthly, and yearly. Pro and Max only.
                 </p>
                 <ClickSpark sparkColor="#7FAF8F" sparkSize={10} sparkRadius={18} className="inline-flex">
                   <button
@@ -1038,9 +1021,6 @@ export default function DigestWidget({
                               {" "}
                               · {dailyPreview.habitsCompleted}/{dailyPreview.habitsTotal} habits
                             </span>
-                            {dailyPreview.remindersCompleted > 0 && (
-                              <span className="text-neutral-dark/45"> · {dailyPreview.remindersCompleted} reminders</span>
-                            )}
                           </p>
                         ) : (
                           <p className="text-xs text-neutral-dark/50">Add habits to see your snapshot.</p>
@@ -1066,7 +1046,6 @@ export default function DigestWidget({
           activeHabits={activeHabits}
           habitLogs={habitLogs}
           streakThreshold={streakThreshold}
-          reminderStatsByDate={reminderStatsByDate}
           tabAvail={tabAvail}
           userId={userId}
           aiEnabled={aiEnabled}

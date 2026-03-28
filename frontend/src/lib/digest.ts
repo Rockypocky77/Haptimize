@@ -1,6 +1,5 @@
 /**
- * Digest / summary metrics for Pro home widget.
- * Firestore reminder counts: users/{uid}/digestDaily/{yyyy-mm-dd} field remindersCompleted.
+ * Digest / summary metrics for Pro home widget (habits only).
  */
 import {
   computeStrongestWeakestHabits,
@@ -10,8 +9,6 @@ import {
   type HabitRef,
   type HabitLog,
 } from "@/lib/analytics";
-
-export const DIGEST_DAILY_SUBCOLLECTION = "digestDaily";
 
 function ymd(d: Date): string {
   const y = d.getFullYear();
@@ -266,7 +263,6 @@ export interface DigestDailyModel {
   habitsTotal: number;
   completionPct: number;
   streakAsOfYesterday: number;
-  remindersCompleted: number;
   biggestWin: string;
   missedHabitTitles: string[];
   hasData: boolean;
@@ -276,7 +272,6 @@ export function buildDigestDailyModel(
   activeHabits: HabitRef[],
   logs: HabitLog[],
   streakThreshold: number,
-  reminderStatsByDate: Record<string, number>,
   now: Date = new Date()
 ): DigestDailyModel {
   const dateYmd = getYesterdayYmd(now);
@@ -288,7 +283,6 @@ export function buildDigestDailyModel(
     : 0;
   const completionPct = total > 0 ? Math.round((habitsCompleted / total) * 100) : 0;
   const streakAsOfYesterday = computeStreakEndingOn(logs, dateYmd, total, streakThreshold);
-  const remindersCompleted = reminderStatsByDate[dateYmd] ?? 0;
 
   const completedSet = new Set(yLog?.completedHabitIds ?? []);
   const missedHabitTitles = activeHabits.filter((h) => !completedSet.has(h.id)).map((h) => h.title);
@@ -312,7 +306,6 @@ export function buildDigestDailyModel(
     habitsTotal: total,
     completionPct,
     streakAsOfYesterday,
-    remindersCompleted,
     biggestWin,
     missedHabitTitles,
     hasData: total > 0 || !!yLog,
@@ -624,11 +617,10 @@ export function buildDigestYearlyModel(
 /** Plain-text lines for AI prompts (no PII beyond habit titles). */
 export function digestDailyAiContext(m: DigestDailyModel): string {
   return [
-    "Daily digest (yesterday).",
+    "Daily habit digest (yesterday only).",
     `Completion: ${m.completionPct}% (${m.habitsCompleted}/${m.habitsTotal} habits).`,
     `Streak (as of yesterday): ${m.streakAsOfYesterday} days.`,
-    `Reminders completed: ${m.remindersCompleted}.`,
-    m.missedHabitTitles.length ? `Missed: ${m.missedHabitTitles.slice(0, 5).join(", ")}` : "No missed habits listed.",
+    m.missedHabitTitles.length ? `Missed habits: ${m.missedHabitTitles.slice(0, 5).join(", ")}` : "No missed habits.",
   ].join(" ");
 }
 

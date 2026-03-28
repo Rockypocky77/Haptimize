@@ -5,11 +5,6 @@ service cloud.firestore {
     // Users: only the owner can read/write their profile
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
-
-      // Per-day reminder completion counts for digest (users/{uid}/digestDaily/{yyyy-mm-dd})
-      match /digestDaily/{date} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
-      }
     }
 
     // Habits: user-scoped subcollection
