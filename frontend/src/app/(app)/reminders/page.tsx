@@ -34,7 +34,9 @@ import {
   updateDoc,
   deleteDoc,
   serverTimestamp,
+  increment,
 } from "@/lib/firebase/client";
+import { DIGEST_DAILY_SUBCOLLECTION } from "@/lib/digest";
 import { toast } from "sonner";
 import { Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import { useDemoGuard } from "@/components/ui/DemoGate";
@@ -121,7 +123,7 @@ export default function RemindersPage() {
       const today = getLocalDateString();
       const casualCol = collection(db, "reminders", profile.uid, "casual");
       const casualSnap = await getDocs(casualCol);
-      const casual: Reminder[] = casualSnap.docs.map((d) => ({
+      let casual: Reminder[] = casualSnap.docs.map((d) => ({
         id: d.id,
         ...d.data(),
         reminderType: "casual",
@@ -134,6 +136,22 @@ export default function RemindersPage() {
         ...d.data(),
         reminderType: "dated",
       })) as Reminder[];
+
+      // Completed reminders are meant to be removed after a 5s undo window. If the user
+      // navigates away, the timer is cleared but Firestore still has completed: true —
+      // purge those docs on load so they don't stick around forever.
+      for (const r of casual) {
+        if (r.completed) {
+          await deleteDoc(doc(db, "reminders", profile.uid, "casual", r.id)).catch(() => {});
+        }
+      }
+      for (const r of dated) {
+        if (r.completed) {
+          await deleteDoc(doc(db, "reminders", profile.uid, "dated", r.id)).catch(() => {});
+        }
+      }
+      casual = casual.filter((r) => !r.completed);
+      dated = dated.filter((r) => !r.completed);
 
       // Move past uncompleted dated reminders to casual
       const toMove = dated.filter((r) => r.date && r.date < today && !r.completed);
@@ -299,6 +317,23 @@ export default function RemindersPage() {
         const subCol = rem.reminderType === "casual" ? "casual" : "dated";
         const ref = doc(db, "reminders", profile.uid, subCol, id);
         await updateDoc(ref, { completed: nowCompleted });
+        if (!isDemo) {
+          const dayKey = getLocalDateString();
+          const digestRef = doc(db, "users", profile.uid, DIGEST_DAILY_SUBCOLLECTION, dayKey);
+          if (nowCompleted) {
+            await setDoc(
+              digestRef,
+              { remindersCompleted: increment(1) },
+              { merge: true }
+            );
+          } else if (wasCompleted) {
+            await setDoc(
+              digestRef,
+              { remindersCompleted: increment(-1) },
+              { merge: true }
+            );
+          }
+        }
       } catch {
         setReminders((prev) =>
           prev.map((r) => (r.id === id ? { ...r, completed: wasCompleted } : r))
@@ -315,7 +350,7 @@ export default function RemindersPage() {
         undoTimeoutsRef.current.set(id, t);
       }
     },
-    [profile?.uid, reminders, removeReminder, guardAction]
+    [profile?.uid, reminders, removeReminder, guardAction, isDemo]
   );
 
   const moveReminderToDate = useCallback(

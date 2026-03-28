@@ -18,7 +18,9 @@ import {
 import { CheckSquare, Bell, ChevronRight, Check } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import AnalyticsWidget from "@/components/home/AnalyticsWidget";
+import DigestWidget from "@/components/home/DigestWidget";
 import { type HabitLog } from "@/lib/analytics";
+import { DIGEST_DAILY_SUBCOLLECTION, getYesterdayYmd } from "@/lib/digest";
 import { useDemoGuard } from "@/components/ui/DemoGate";
 import ClickSpark from "@/components/ui/ClickSpark";
 import { useDateChange } from "@/hooks/useDateChange";
@@ -89,7 +91,7 @@ function generateDemoHabitLogs(): HabitLog[] {
 }
 
 export default function HomePage() {
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const { isDemo, guardAction } = useDemoGuard();
   const [completionPct, setCompletionPct] = useState(0);
   const [streak, setStreak] = useState(0);
@@ -99,6 +101,7 @@ export default function HomePage() {
   const [totalHabitsCount, setTotalHabitsCount] = useState(0);
   const [reminders, setReminders] = useState<ReminderItem[]>([]);
   const [habitLogs, setHabitLogs] = useState<HabitLog[]>([]);
+  const [reminderDigestStats, setReminderDigestStats] = useState<Record<string, number>>({});
   const [loaded, setLoaded] = useState(false);
   const [dateRefresh, setDateRefresh] = useState(0);
 
@@ -116,6 +119,7 @@ export default function HomePage() {
       setStreak(7);
       const demoLogs = generateDemoHabitLogs();
       setHabitLogs(demoLogs);
+      setReminderDigestStats({ [getYesterdayYmd()]: 2 });
       setLoaded(true);
       return;
     }
@@ -217,6 +221,18 @@ export default function HomePage() {
         });
         if (!cancelled) setHabitLogs(logs);
       } catch { /* no logs yet */ }
+
+      try {
+        const digestSnap = await getDocs(collection(db, "users", uid, DIGEST_DAILY_SUBCOLLECTION));
+        const map: Record<string, number> = {};
+        digestSnap.forEach((d) => {
+          const n = d.data().remindersCompleted;
+          map[d.id] = typeof n === "number" ? Math.max(0, n) : 0;
+        });
+        if (!cancelled) setReminderDigestStats(map);
+      } catch {
+        if (!cancelled) setReminderDigestStats({});
+      }
 
       if (!cancelled) setLoaded(true);
     }
@@ -344,6 +360,24 @@ export default function HomePage() {
                 </motion.div>
               )}
             </AnimatePresence>
+          </FadeIn>
+          <FadeIn delay={0.25}>
+            <DigestWidget
+              activeHabits={allHabits.map((h) => ({ id: h.id, title: h.title }))}
+              habitLogs={habitLogs}
+              loaded={loaded}
+              isDemo={isDemo}
+              plan={profile?.plan ?? "free"}
+              streakThreshold={profile?.streakThreshold ?? 80}
+              reminderStatsByDate={reminderDigestStats}
+              signupAt={
+                user?.metadata?.creationTime
+                  ? new Date(user.metadata.creationTime)
+                  : null
+              }
+              userId={profile?.uid}
+              aiEnabled={profile?.aiEnabled !== false}
+            />
           </FadeIn>
           <FadeIn delay={0.3}>
             <AnimatePresence mode="wait">
