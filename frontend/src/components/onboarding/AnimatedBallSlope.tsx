@@ -118,9 +118,9 @@ export default function AnimatedBallSlope({
   const phaseEase = [0.22, 1, 0.36, 1] as const;
 
   return (
-    <div className="text-center space-y-3 sm:space-y-4 w-full max-w-lg mx-auto min-h-0 max-h-full overflow-hidden flex flex-col justify-center">
+    <div className="text-center space-y-4 sm:space-y-5 w-full max-w-2xl md:max-w-3xl mx-auto min-h-0 max-h-full overflow-hidden flex flex-col justify-center">
       {/* Fixed caption height — crossfade phases without layout jump */}
-      <div className="relative min-h-[64px] sm:min-h-[72px] flex items-center justify-center shrink-0">
+      <div className="relative min-h-[72px] sm:min-h-[80px] flex items-center justify-center shrink-0">
         <AnimatePresence mode="sync">
           {phase === "effort" && (
             <motion.div
@@ -136,7 +136,7 @@ export default function AnimatedBallSlope({
                 delay={120}
                 animateBy="words"
                 direction="top"
-                className="text-lg sm:text-xl md:text-2xl font-bold text-neutral-dark"
+                className="text-xl sm:text-2xl md:text-3xl font-bold text-neutral-dark"
               />
             </motion.div>
           )}
@@ -154,14 +154,14 @@ export default function AnimatedBallSlope({
                 delay={120}
                 animateBy="words"
                 direction="top"
-                className="text-lg sm:text-xl md:text-2xl font-bold text-neutral-dark"
+                className="text-xl sm:text-2xl md:text-3xl font-bold text-neutral-dark"
               />
             </motion.div>
           )}
         </AnimatePresence>
       </div>
 
-      <div className="relative w-full max-h-[min(24vh,9.5rem)] h-[9rem] sm:h-[9.5rem] shrink-0 mx-auto">
+      <div className="relative w-full max-h-[min(30vh,12rem)] h-[10.5rem] sm:h-[11.5rem] shrink-0 mx-auto">
         <svg
           viewBox="0 0 600 240"
           className="w-full h-full"
@@ -219,7 +219,7 @@ export default function AnimatedBallSlope({
         </svg>
       </div>
 
-      <div className="min-h-[72px] sm:min-h-[80px] shrink-0">
+      <div className="min-h-[80px] sm:min-h-[88px] shrink-0">
         <AnimatePresence>
           {phase === "result" && (
             <motion.div
@@ -228,21 +228,21 @@ export default function AnimatedBallSlope({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.55, ease: [0.25, 0.1, 0.25, 1] }}
-              className="space-y-1.5"
+              className="space-y-2"
             >
               <BlurText
                 text="You can't stop."
                 delay={120}
                 animateBy="words"
                 direction="bottom"
-                className="text-lg sm:text-xl md:text-2xl font-bold text-neutral-dark"
+                className="text-xl sm:text-2xl md:text-3xl font-bold text-neutral-dark"
               />
               <BlurText
                 text="Use momentum to your advantage. Your Momentum Score and analytics show how consistency compounds."
                 delay={100}
                 animateBy="words"
                 direction="bottom"
-                className="text-xs sm:text-sm text-neutral-dark/70 font-medium leading-snug px-1"
+                className="text-sm sm:text-base text-neutral-dark/70 font-medium leading-snug px-1"
               />
             </motion.div>
           )}

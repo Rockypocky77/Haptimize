@@ -275,17 +275,17 @@ export default function DashboardPreview({ onComplete }: { onComplete: () => voi
   };
 
   return (
-    <div className="text-center space-y-2 w-full max-w-lg mx-auto min-h-0 max-h-full flex flex-col overflow-hidden">
+    <div className="text-center space-y-3 w-full max-w-2xl md:max-w-3xl mx-auto min-h-0 max-h-full flex flex-col overflow-hidden">
       <BlurText
         text="This mirrors your Home layout."
         delay={100}
         animateBy="words"
         direction="top"
-        className="text-lg sm:text-xl md:text-2xl font-bold text-neutral-dark shrink-0"
+        className="text-xl sm:text-2xl md:text-3xl font-bold text-neutral-dark shrink-0"
       />
 
       <motion.div
-        className="relative mx-auto w-full max-w-[min(100%,22rem)] min-h-0 max-h-[min(52vh,20rem)] sm:max-h-[min(56vh,22rem)] rounded-xl border border-primary-light/25 bg-neutral-light/40 p-2 sm:p-2.5 overflow-hidden"
+        className="relative mx-auto w-full max-w-[min(100%,30rem)] min-h-0 max-h-[min(58vh,26rem)] sm:max-h-[min(62vh,28rem)] rounded-xl border border-primary-light/25 bg-neutral-light/40 p-2.5 sm:p-3 overflow-hidden"
         initial={false}
         animate={dashboardVisible ? { opacity: 1, y: 0 } : { opacity: 0, y: 14 }}
         transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
@@ -328,12 +328,12 @@ export default function DashboardPreview({ onComplete }: { onComplete: () => voi
         </div>
       </motion.div>
 
-      <div className="relative min-h-[52px] sm:min-h-[56px] mt-0.5 shrink-0">
+      <div className="relative min-h-[60px] sm:min-h-[68px] mt-0.5 shrink-0">
         <AnimatePresence mode="sync">
           {focusIndex >= 0 && focusIndex < focusItems.length && (
             <motion.p
               key={focusItems[focusIndex].id}
-              className="text-[10px] sm:text-xs text-neutral-dark/80 font-medium max-w-md mx-auto absolute left-0 right-0 top-0 px-1 leading-snug"
+              className="text-xs sm:text-sm text-neutral-dark/80 font-medium max-w-xl mx-auto absolute left-0 right-0 top-0 px-2 leading-snug"
               initial={{ opacity: 0, y: 5 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -3 }}

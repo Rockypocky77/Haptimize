@@ -168,22 +168,22 @@ export default function OnboardingPage() {
                 secondaryButtonLabel="Replay onboarding"
                 onSecondaryClick={replayOnboarding}
               >
-                <div className="text-center space-y-3 max-w-lg mx-auto px-2 min-h-0 overflow-hidden">
+                <div className="text-center space-y-4 max-w-xl md:max-w-2xl mx-auto px-2 min-h-0 overflow-hidden">
                   <BlurText
                     text="Small changes."
                     delay={150}
                     animateBy="words"
                     direction="top"
-                    className="text-2xl sm:text-3xl md:text-4xl font-black text-neutral-dark"
+                    className="text-3xl sm:text-4xl md:text-5xl font-black text-neutral-dark"
                   />
                   <BlurText
                     text="Massive results."
                     delay={150}
                     animateBy="words"
                     direction="top"
-                    className="text-2xl sm:text-3xl md:text-4xl font-black text-primary"
+                    className="text-3xl sm:text-4xl md:text-5xl font-black text-primary"
                   />
-                  <ul className="text-left text-[11px] sm:text-xs text-neutral-dark/70 space-y-1 max-w-sm mx-auto pt-1 leading-snug">
+                  <ul className="text-left text-xs sm:text-sm text-neutral-dark/70 space-y-1.5 max-w-lg mx-auto pt-1 leading-snug">
                     <li className="flex gap-2">
                       <span className="text-primary font-bold shrink-0">·</span>
                       <span>
@@ -224,7 +224,7 @@ export default function OnboardingPage() {
                       ease: ONBOARD_EASE_OUT,
                     }}
                   >
-                    <TextShimmer className="text-base font-medium mt-1 [--base-color:#4a8a5e] [--base-gradient-color:#2E3A3F]" duration={3}>
+                    <TextShimmer className="text-lg font-medium mt-1 [--base-color:#4a8a5e] [--base-gradient-color:#2E3A3F]" duration={3}>
                       Ready to start improving?
                     </TextShimmer>
                   </motion.div>

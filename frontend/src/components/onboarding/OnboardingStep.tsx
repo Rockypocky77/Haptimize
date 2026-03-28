@@ -30,9 +30,9 @@ export default function OnboardingStep({
   const hasFooter = showButton || secondaryButtonLabel;
 
   return (
-    <div className="h-full min-h-0 w-full flex flex-col items-stretch overflow-hidden px-3 pt-[max(0.35rem,env(safe-area-inset-top))] pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:px-4">
+    <div className="h-full min-h-0 w-full flex flex-col items-stretch overflow-hidden px-4 pt-[max(0.35rem,env(safe-area-inset-top))] pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:px-6 md:px-8">
       <div
-        className={`flex-1 min-h-0 flex flex-col items-center justify-center w-full mx-auto overflow-hidden ${wide ? "max-w-5xl" : "max-w-2xl"}`}
+        className={`flex-1 min-h-0 flex flex-col items-center justify-center w-full mx-auto overflow-hidden ${wide ? "max-w-6xl" : "max-w-3xl"}`}
       >
         {children}
       </div>

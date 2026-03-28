@@ -40,7 +40,7 @@ function ReminderDemo() {
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.95 }}
       transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
-      className="w-full max-w-[210px] bg-white rounded-lg shadow-md border border-gray-200/60 p-2.5 scale-[0.92] origin-top"
+      className="w-full max-w-[min(100%,22rem)] sm:max-w-sm bg-white rounded-xl shadow-lg border border-gray-200/60 p-4"
     >
       <h4 className="text-sm font-semibold text-neutral-dark/80 mb-3 flex items-center gap-2">
         <Bell size={14} className="text-accent" /> Reminders
@@ -94,7 +94,7 @@ function CalendarDemo() {
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.95 }}
       transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
-      className="w-full max-w-[210px] bg-white rounded-lg shadow-md border border-gray-200/60 p-2.5 scale-[0.92] origin-top"
+      className="w-full max-w-[min(100%,22rem)] sm:max-w-sm bg-white rounded-xl shadow-lg border border-gray-200/60 p-4"
     >
       <h4 className="text-sm font-semibold text-neutral-dark/80 mb-3 flex items-center gap-2">
         <Calendar size={14} className="text-primary" /> Calendar
@@ -157,7 +157,7 @@ function HabitsDemo() {
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.95 }}
       transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
-      className="w-full max-w-[210px] bg-white rounded-lg shadow-md border border-gray-200/60 p-2.5 scale-[0.92] origin-top"
+      className="w-full max-w-[min(100%,22rem)] sm:max-w-sm bg-white rounded-xl shadow-lg border border-gray-200/60 p-4"
     >
       <h4 className="text-sm font-semibold text-neutral-dark/80 mb-3 flex items-center gap-2">
         <CheckSquare size={14} className="text-primary" /> Habits
@@ -217,11 +217,11 @@ function HabitsDemo() {
 
 function TypingDots() {
   return (
-    <div className="flex gap-1.5 px-4 py-3">
+    <div className="flex gap-2 px-4 py-2">
       {[0, 1, 2].map((i) => (
         <motion.div
           key={i}
-          className="w-2 h-2 rounded-full bg-neutral-dark/40"
+          className="w-2.5 h-2.5 rounded-full bg-neutral-dark/40"
           animate={{ opacity: [0.3, 1, 0.3] }}
           transition={{
             duration: 1.15,
@@ -394,26 +394,26 @@ export default function HaptiAiOnboardingStep({
   const showDemo = DEMO_PHASES.includes(phase);
 
   return (
-    <div className="w-full max-w-4xl mx-auto h-full min-h-0 flex flex-col overflow-hidden">
-      {/* intro icon */}
+    <div className="w-full max-w-3xl md:max-w-4xl lg:max-w-5xl mx-auto h-full min-h-0 flex flex-col overflow-hidden">
+      {/* intro — centered, larger */}
       <AnimatePresence mode="sync">
         {!chatOpen && (
           <motion.div
             key="intro-icon"
-            className="flex flex-col items-center gap-2 shrink-0"
+            className="flex-1 flex flex-col items-center justify-center gap-5 min-h-0 py-4"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 4 }}
             transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
           >
             <motion.div
-              className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center shadow-lg"
+              className="w-20 h-20 rounded-2xl bg-primary flex items-center justify-center shadow-xl"
               animate={{ scale: [1, 1.04, 1] }}
               transition={{ duration: 2.4, repeat: Infinity, ease: [0.45, 0, 0.55, 1] }}
             >
-              <Sparkles size={22} className="text-white" />
+              <Sparkles size={36} className="text-white" />
             </motion.div>
-            <p className="text-sm font-semibold text-neutral-dark">
+            <p className="text-xl md:text-2xl font-semibold text-neutral-dark">
               Meet Hapti AI
             </p>
           </motion.div>
@@ -425,38 +425,37 @@ export default function HaptiAiOnboardingStep({
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.52, ease: [0.22, 1, 0.36, 1] }}
-          className="space-y-2 min-h-0 flex-1 flex flex-col overflow-hidden"
+          className="flex-1 min-h-0 flex flex-col items-center justify-center overflow-hidden py-2"
         >
-          {/* narration text above everything */}
-          <div className="text-center relative min-h-[32px] sm:min-h-[36px] flex items-start justify-center shrink-0">
-            <AnimatePresence mode="sync">
-              {narration && (
-                <motion.p
-                  key={phase}
-                  className={
-                    isPrompt
-                      ? "text-sm font-medium text-primary absolute left-0 right-0 px-2"
-                      : "text-sm sm:text-base font-semibold text-neutral-dark absolute left-0 right-0 px-2"
-                  }
-                  initial={{ opacity: 0, y: 4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -2 }}
-                  transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-                >
-                  {narration}
-                </motion.p>
-              )}
-            </AnimatePresence>
-          </div>
+          {/* One visual column: narration + optional demo + chat share width */}
+          <div className="w-full max-w-xl sm:max-w-2xl md:max-w-[40rem] mx-auto flex flex-col gap-3 min-h-0 overflow-hidden px-1">
+            <div className="text-center relative min-h-[2.75rem] sm:min-h-[3rem] flex items-center justify-center shrink-0 px-2">
+              <AnimatePresence mode="sync">
+                {narration && (
+                  <motion.p
+                    key={phase}
+                    className={
+                      isPrompt
+                        ? "text-base sm:text-lg font-medium text-primary"
+                        : "text-base sm:text-lg md:text-xl font-semibold text-neutral-dark leading-snug"
+                    }
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                  >
+                    {narration}
+                  </motion.p>
+                )}
+              </AnimatePresence>
+            </div>
 
-          {/* Stacked layout: demo above chat so the panel never jumps sideways on desktop */}
-          <div className="flex flex-col items-center gap-2 w-full min-h-0 flex-1 overflow-hidden">
             {showDemo && (
               <motion.div
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-                className="w-full flex justify-center min-h-0 max-h-[24vh] items-center shrink-0 py-1"
+                className="flex justify-center shrink-0 py-1"
               >
                 <AnimatePresence mode="sync">
                   {phase === "demo_reminders" && <ReminderDemo key="rem" />}
@@ -466,81 +465,73 @@ export default function HaptiAiOnboardingStep({
               </motion.div>
             )}
 
-            <div className="flex justify-center w-full min-h-0 flex-1 overflow-hidden">
-              <div className="w-full max-w-[min(100%,20rem)] bg-white rounded-xl shadow-xl border border-primary-light/30 overflow-hidden flex flex-col min-h-0 max-h-full">
-                {/* header */}
-                <div className="flex items-center gap-2 px-3 py-2 border-b border-primary-light/20 bg-white shrink-0">
-                  <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center">
-                    <Sparkles size={14} className="text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-neutral-dark">
-                      Hapti AI
-                    </p>
-                    <p className="text-[10px] text-neutral-dark/50">
-                      Your habits assistant
-                    </p>
-                  </div>
+            {/* Chat: fixed-height thread — avoids flex-1 “infinite empty” glitch before messages */}
+            <div className="w-full shrink-0 rounded-2xl shadow-2xl border border-primary-light/30 bg-white overflow-hidden flex flex-col">
+              <div className="flex items-center gap-3 px-4 py-3 border-b border-primary-light/20 bg-white shrink-0">
+                <div className="w-11 h-11 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
+                  <Sparkles size={20} className="text-primary" />
                 </div>
-
-                {/* messages */}
-                <div
-                  ref={scrollRef}
-                  className="flex-1 min-h-0 max-h-[32vh] sm:max-h-[36vh] overflow-y-auto overscroll-contain px-2.5 py-2 space-y-2 bg-gray-50/50"
-                >
-                  <AnimatePresence initial={false}>
-                    {messages.map((msg) => (
-                      <motion.div
-                        key={msg.id}
-                        initial={{ opacity: 0, y: 8, scale: 0.98 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-                        className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-                      >
-                        <div
-                          className={`max-w-[80%] px-3.5 py-2 rounded-2xl text-sm leading-relaxed ${
-                            msg.role === "user"
-                              ? "bg-primary text-white rounded-br-md"
-                              : "bg-white text-neutral-dark border border-gray-200/60 rounded-bl-md shadow-sm"
-                          }`}
-                        >
-                          {msg.text}
-                        </div>
-                      </motion.div>
-                    ))}
-                  </AnimatePresence>
-                  {typing && <TypingDots />}
+                <div>
+                  <p className="text-base font-semibold text-neutral-dark">Hapti AI</p>
+                  <p className="text-xs text-neutral-dark/50">Your habits assistant</p>
                 </div>
-
-                {/* input */}
-                <form
-                  onSubmit={handleSubmit}
-                  className="px-2.5 py-2 border-t border-gray-200/60 bg-white shrink-0"
-                >
-                  <div className="flex gap-2">
-                    <input
-                      value={currentInput}
-                      onChange={(e) => setCurrentInput(e.target.value)}
-                      placeholder={
-                        phase === "sayhi"
-                          ? "Say hi..."
-                          : phase === "nameinput"
-                            ? "Your name..."
-                            : "..."
-                      }
-                      disabled={!inputEnabled}
-                      className="flex-1 px-3 py-2 rounded-xl bg-gray-100 text-sm text-neutral-dark placeholder:text-neutral-dark/40 outline-none disabled:opacity-30 disabled:cursor-not-allowed"
-                    />
-                    <button
-                      type="submit"
-                      disabled={!inputEnabled || !currentInput.trim()}
-                      className="w-9 h-9 rounded-xl bg-primary text-white flex items-center justify-center disabled:opacity-25 cursor-pointer disabled:cursor-not-allowed transition-opacity"
-                    >
-                      <Send size={14} />
-                    </button>
-                  </div>
-                </form>
               </div>
+
+              <div
+                ref={scrollRef}
+                className="h-[min(300px,42dvh)] sm:h-[min(360px,48dvh)] overflow-y-auto overscroll-contain px-4 py-3 space-y-3 bg-gray-50/80"
+              >
+                <AnimatePresence initial={false}>
+                  {messages.map((msg) => (
+                    <motion.div
+                      key={msg.id}
+                      initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+                      className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                    >
+                      <div
+                        className={`max-w-[85%] px-4 py-2.5 rounded-2xl text-base leading-relaxed ${
+                          msg.role === "user"
+                            ? "bg-primary text-white rounded-br-md"
+                            : "bg-white text-neutral-dark border border-gray-200/60 rounded-bl-md shadow-sm"
+                        }`}
+                      >
+                        {msg.text}
+                      </div>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+                {typing && <TypingDots />}
+              </div>
+
+              <form
+                onSubmit={handleSubmit}
+                className="px-4 py-3 border-t border-gray-200/60 bg-white shrink-0"
+              >
+                <div className="flex gap-3">
+                  <input
+                    value={currentInput}
+                    onChange={(e) => setCurrentInput(e.target.value)}
+                    placeholder={
+                      phase === "sayhi"
+                        ? "Say hi..."
+                        : phase === "nameinput"
+                          ? "Your name..."
+                          : "..."
+                    }
+                    disabled={!inputEnabled}
+                    className="flex-1 min-w-0 px-4 py-3 rounded-xl bg-gray-100 text-base text-neutral-dark placeholder:text-neutral-dark/40 outline-none disabled:opacity-30 disabled:cursor-not-allowed"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!inputEnabled || !currentInput.trim()}
+                    className="w-12 h-12 rounded-xl bg-primary text-white flex items-center justify-center disabled:opacity-25 cursor-pointer disabled:cursor-not-allowed transition-opacity shrink-0"
+                  >
+                    <Send size={18} />
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         </motion.div>
